@@ -77,6 +77,13 @@
                     <span>Change PIN</span>
                 </a>
             </li>
+
+            <li class="nav-item">
+                <a href="#" class="nav-link" onclick="installApp(); return false;">
+                    <i class="fas fa-download"></i>
+                    <span>Download App</span>
+                </a>
+            </li>
             
             <li class="nav-item">
                 <a href="<?php echo url('auth/logout.php'); ?>" class="nav-link text-danger">

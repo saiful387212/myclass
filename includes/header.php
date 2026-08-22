@@ -50,6 +50,163 @@
         echo '<link rel="stylesheet" href="' . asset('css/student.css') . '?v=' . APP_VERSION . '">';
     }
     ?>
+    <!-- ===== PWA META TAGS ===== -->
+<!-- Basic PWA Meta -->
+<link rel="manifest" href="<?php echo url('manifest.json'); ?>">
+<meta name="theme-color" content="#4F46E5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ClassMate">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="ClassMate">
+
+<!-- Favicon & Icons -->
+<link rel="icon" href="<?php echo asset('images/favicon.ico'); ?>" type="image/x-icon">
+<link rel="apple-touch-icon" href="<?php echo asset('icons/apple-touch-icon.png'); ?>">
+<link rel="apple-touch-icon" sizes="192x192" href="<?php echo asset('icons/web-app-manifest-192x192.png'); ?>">
+<link rel="apple-touch-icon" sizes="512x512" href="<?php echo asset('icons/web-app-manifest-512x512.png'); ?>">
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('<?php echo url('sw.js'); ?>')
+            .then(function(registration) {
+                console.log('ServiceWorker registration successful');
+                
+                // Check for updates
+                registration.addEventListener('updatefound', function() {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', function() {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New version available
+                            const updateBtn = document.createElement('div');
+                            updateBtn.className = 'update-notification';
+                            updateBtn.innerHTML = `
+                                <div class="update-content">
+                                    <i class="fas fa-sync-alt fa-spin"></i>
+                                    <span>New version available! Click to update.</span>
+                                    <button onclick="updateApp()" class="btn btn-sm btn-primary">Update Now</button>
+                                </div>
+                            `;
+                            document.body.appendChild(updateBtn);
+                            
+                            // Auto-hide after 10 seconds
+                            setTimeout(function() {
+                                updateBtn.style.opacity = '0';
+                                setTimeout(function() {
+                                    updateBtn.remove();
+                                }, 500);
+                            }, 10000);
+                        }
+                    });
+                });
+            })
+            .catch(function(error) {
+                console.log('ServiceWorker registration failed:', error);
+            });
+    });
+}
+
+// ===== Update App Function =====
+function updateApp() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(function(registration) {
+            if (registration) {
+                registration.update();
+                alert('Updating ClassMate... Please wait.');
+                setTimeout(function() {
+                    location.reload();
+                }, 2000);
+            }
+        });
+    }
+}
+
+// ===== Prompt to Install PWA =====
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+    // Prevent Chrome 67 and earlier from automatically showing the prompt
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    
+    // Show install button
+    const installBtn = document.createElement('div');
+    installBtn.className = 'install-prompt';
+    installBtn.innerHTML = `
+        <div class="install-content">
+            <i class="fas fa-download"></i>
+            <span>Install ClassMate App</span>
+            <button onclick="installApp()" class="btn btn-sm btn-success">Install</button>
+            <button onclick="dismissInstall()" class="btn btn-sm btn-outline">×</button>
+        </div>
+    `;
+    document.body.appendChild(installBtn);
+});
+
+function installApp() {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(choiceResult) {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            deferredPrompt = null;
+            
+            // Remove install button
+            const prompt = document.querySelector('.install-prompt');
+            if (prompt) prompt.remove();
+        });
+    } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        alert('ClassMate is already installed.');
+    } else {
+        alert('App installation is not available in this browser yet.');
+    }
+}
+
+function dismissInstall() {
+    const prompt = document.querySelector('.install-prompt');
+    if (prompt) prompt.remove();
+}
+
+// ===== Offline Status Detection =====
+window.addEventListener('online', function() {
+    showToast('Back online!', 'success');
+    // Refresh data
+    location.reload();
+});
+
+window.addEventListener('offline', function() {
+    showToast('You are offline. Some features may be unavailable.', 'warning');
+});
+
+// ===== Toast for offline status =====
+function showToast(message, type) {
+    const container = document.querySelector('.toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close" onclick="this.closest('.toast').remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+</script>
 </head>
 <body>
     

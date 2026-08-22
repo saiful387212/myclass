@@ -3,6 +3,7 @@
  * Authentication Class - Complete Auth System
  */
 
+if (!class_exists('Auth', false)) {
 class Auth {
     
     // Login attempts tracking
@@ -20,7 +21,7 @@ class Auth {
             $lastActivity = Session::get('last_activity');
             $timeout = defined('SESSION_TIMEOUT') ? SESSION_TIMEOUT : 3600;
             
-            if ($lastActivity && (time() - $lastActivity > $timeout)) {
+            if ($timeout > 0 && $lastActivity && (time() - $lastActivity > $timeout)) {
                 self::logout();
                 Session::setFlash('warning', 'Your session has expired. Please login again.');
                 return false;
@@ -171,10 +172,11 @@ class Auth {
         
         // Set session cookie parameters
         $cookieParams = session_get_cookie_params();
+        $sessionLifetime = defined('AUTH_SESSION_LIFETIME') ? AUTH_SESSION_LIFETIME : 315360000;
         setcookie(
             session_name(),
             session_id(),
-            time() + SESSION_TIMEOUT,
+            time() + $sessionLifetime,
             $cookieParams['path'],
             $cookieParams['domain'],
             $cookieParams['secure'],
@@ -374,5 +376,6 @@ class Auth {
     public static function generatePIN($length = 6) {
         return str_pad(random_int(0, pow(10, $length) - 1), $length, '0', STR_PAD_LEFT);
     }
+}
 }
 ?>

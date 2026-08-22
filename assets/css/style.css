@@ -1767,3 +1767,179 @@ input, select, textarea, .file-drop-zone,
     /* reduce top padding so hero aligns closer to header */
     padding-top: var(--spacing-md);
 }
+/* ===== PWA Install Prompt ===== */
+.install-prompt {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: var(--bg-white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-sm) var(--spacing-md);
+    max-width: 400px;
+    width: 90%;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.install-prompt .install-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.install-prompt .install-content i {
+    font-size: 1.5rem;
+    color: var(--primary);
+}
+
+.install-prompt .install-content span {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.install-prompt .install-content .btn {
+    padding: 4px 12px;
+    font-size: var(--font-size-xs);
+}
+
+.install-prompt .install-content .btn-outline {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+/* ===== Update Notification ===== */
+.update-notification {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: var(--primary);
+    color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
+    max-width: 450px;
+    width: 90%;
+    animation: slideUp 0.3s ease;
+}
+
+.update-notification .update-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.update-notification .update-content i {
+    font-size: 1.2rem;
+}
+
+.update-notification .update-content span {
+    flex: 1;
+    font-size: var(--font-size-sm);
+}
+
+.update-notification .update-content .btn {
+    background: white;
+    color: var(--primary);
+    padding: 4px 16px;
+    font-size: var(--font-size-xs);
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.update-notification .update-content .btn:hover {
+    background: var(--gray-100);
+}
+
+/* ===== Safe Area Insets for PWA ===== */
+@supports (padding: max(0px)) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    
+    .app-header {
+        padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+    }
+    
+    .mobile-nav {
+        padding-bottom: max(var(--spacing-sm), env(safe-area-inset-bottom));
+    }
+}
+
+/* ===== Splash Screen ===== */
+.splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease;
+}
+
+.splash-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.splash-screen img {
+    width: 80px;
+    height: 80px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.splash-screen h1 {
+    color: white;
+    margin-top: var(--spacing-md);
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+}
+
+.splash-screen .loader {
+    margin-top: var(--spacing-lg);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}

@@ -11,13 +11,16 @@ ini_set('display_errors', 1);
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
 ini_set('session.cookie_secure', 0); // Set to 1 for HTTPS
+define('AUTH_SESSION_LIFETIME', 315360000); // 10 years, cleared on logout
+ini_set('session.cookie_lifetime', AUTH_SESSION_LIFETIME);
+ini_set('session.gc_maxlifetime', AUTH_SESSION_LIFETIME);
 
 // Timezone
 date_default_timezone_set('Asia/Dhaka');
 
 // Define Base Paths
 define('BASE_PATH', dirname(__DIR__));
-define('BASE_URL', 'http://localhost/myclass');
+define('BASE_URL', 'https://classmate.site.je/');
 define('ADMIN_URL', BASE_URL . '/admin');
 define('STUDENT_URL', BASE_URL . '/student');
 define('AUTH_URL', BASE_URL . '/auth');
@@ -55,7 +58,7 @@ define('APP_ENV', 'development'); // development, production
 define('SALT_LENGTH', 32);
 define('TOKEN_EXPIRY', 3600); // 1 hour
 define('MAX_LOGIN_ATTEMPTS', 5);
-define('SESSION_TIMEOUT', 3600); // 1 hour
+define('SESSION_TIMEOUT', 0); // No inactivity expiry; logout ends the session
 
 // Upload Settings
 define('MAX_FILE_SIZE', 10485760); // 10MB

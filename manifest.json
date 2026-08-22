@@ -1,0 +1,123 @@
+{
+  "name": "ClassMate - Class Representative Management System",
+  "short_name": "ClassMate",
+  "description": "Complete class management system for students and administrators",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#4F46E5",
+  "theme_color": "#4F46E5",
+  "categories": ["education", "productivity", "management"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/assets/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Go to dashboard",
+      "url": "/student/dashboard.php",
+      "icons": [
+        {
+          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Classes",
+      "short_name": "Classes",
+      "description": "View your classes",
+      "url": "/student/classes.php",
+      "icons": [
+        {
+          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Assignments",
+      "short_name": "Assignments",
+      "description": "View assignments",
+      "url": "/student/assignments.php",
+      "icons": [
+        {
+          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "short_name": "Login",
+      "description": "Login to ClassMate",
+      "url": "/auth/login.php",
+      "icons": [
+        {
+          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "splash_pages": {
+    "dark": "/assets/images/splash-screen.png",
+    "light": "/assets/images/splash-screen.png"
+  },
+  "prefer_related_applications": false,
+  "related_applications": []
+}

@@ -22,7 +22,7 @@ function redirect($url) {
 }
 
 function url($path = '') {
-    return BASE_URL . '/' . ltrim($path, '/');
+    return rtrim(BASE_URL, '/') . '/' . ltrim($path, '/');
 }
 
 function isActivePage($page) {
