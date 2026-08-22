@@ -3,25 +3,24 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'classmate-v2.0.0';
-const OFFLINE_URL = '/offline.html';
+const CACHE_NAME = 'classmate-v2.0.1';
+const APP_ROOT = new URL('./', self.location.href).pathname;
+const OFFLINE_URL = APP_ROOT + 'offline.html';
+const appAsset = function(path) {
+  return APP_ROOT + path;
+};
 
 // Assets to cache on install
 const ASSETS_TO_CACHE = [
-  '/',
-  '/offline.html',
-  '/assets/css/style.css',
-  '/assets/css/components.css',
-  '/assets/css/responsive.css',
-  '/assets/css/student.css',
-  '/assets/js/main.js',
-  '/assets/js/notifications.js',
-  '/assets/js/validation.js',
-  '/assets/images/logo.svg',
-  '/assets/images/favicon.ico',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  APP_ROOT,
+  OFFLINE_URL,
+  appAsset('assets/css/style.css'),
+  appAsset('assets/css/components.css'),
+  appAsset('assets/css/responsive.css'),
+  appAsset('assets/css/student.css'),
+  appAsset('assets/js/main.js'),
+  appAsset('assets/js/notifications.js'),
+  appAsset('assets/js/validation.js')
 ];
 
 // ===== INSTALL EVENT =====
@@ -155,9 +154,9 @@ self.addEventListener('push', function(event) {
   let data = {
     title: 'ClassMate',
     body: 'You have a new notification',
-    icon: '/assets/images/logo.svg',
-    badge: '/assets/images/favicon.ico',
-    url: '/'
+    icon: appAsset('assets/icons/web-app-manifest-192x192.png'),
+    badge: appAsset('assets/icons/favicon-96x96.png'),
+    url: APP_ROOT
   };
 
   if (event.data) {
@@ -170,11 +169,11 @@ self.addEventListener('push', function(event) {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/assets/images/logo.svg',
-    badge: data.badge || '/assets/images/favicon.ico',
+    icon: data.icon || appAsset('assets/icons/web-app-manifest-192x192.png'),
+    badge: data.badge || appAsset('assets/icons/favicon-96x96.png'),
     vibrate: [100, 50, 100],
     data: {
-      url: data.url || '/'
+      url: data.url || APP_ROOT
     },
     actions: [
       {

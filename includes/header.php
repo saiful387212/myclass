@@ -164,7 +164,18 @@ function installApp() {
     } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
         alert('ClassMate is already installed.');
     } else {
-        alert('App installation is not available in this browser yet.');
+        if (!window.isSecureContext) {
+            alert('App installation requires HTTPS. Open ClassMate using https:// or use http://localhost/myclass/ on this computer.');
+            return;
+        }
+
+        // Detect iOS device
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            alert('To install the app on iOS, tap the Share icon at the bottom of the screen and select "Add to Home Screen".');
+        } else {
+            alert('This browser does not support the automatic install button. Open ClassMate in Chrome or Edge, then use the browser menu and choose "Install ClassMate".');
+        }
     }
 }
 

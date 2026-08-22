@@ -18,9 +18,25 @@ ini_set('session.gc_maxlifetime', AUTH_SESSION_LIFETIME);
 // Timezone
 date_default_timezone_set('Asia/Dhaka');
 
+// Detect the active host so local XAMPP installs keep their own application path.
+$requestAuthority = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$requestHost = strtolower(preg_replace('/:\d+$/', '', $requestAuthority));
+$localHosts = ['localhost', '127.0.0.1', '::1'];
+$isLocalEnvironment = in_array($requestHost, $localHosts, true);
+
 // Define Base Paths
 define('BASE_PATH', dirname(__DIR__));
-define('BASE_URL', 'https://classmate.site.je/');
+$documentRoot = isset($_SERVER['DOCUMENT_ROOT']) ? str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT'])) : '';
+$applicationPath = str_replace('\\', '/', BASE_PATH);
+if ($documentRoot !== '' && strpos($applicationPath, $documentRoot) === 0) {
+    $applicationPath = substr($applicationPath, strlen($documentRoot));
+}
+$applicationPath = rtrim('/' . trim($applicationPath, '/'), '/');
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$baseUrl = $isLocalEnvironment
+    ? $scheme . '://' . $requestAuthority . $applicationPath
+    : 'https://classmate.site.je';
+define('BASE_URL', $baseUrl);
 define('ADMIN_URL', BASE_URL . '/admin');
 define('STUDENT_URL', BASE_URL . '/student');
 define('AUTH_URL', BASE_URL . '/auth');
@@ -30,11 +46,6 @@ define('UPLOAD_URL', BASE_URL . '/uploads');
 define('UPLOAD_ASSIGNMENTS', UPLOAD_PATH . '/assignments');
 
 // Database Configuration
-$localHosts = ['localhost', '127.0.0.1', '::1'];
-$requestHost = strtolower($_SERVER['HTTP_HOST'] ?? 'localhost');
-$requestHost = preg_replace('/:\d+$/', '', $requestHost);
-$isLocalEnvironment = in_array($requestHost, $localHosts, true);
-
 if ($isLocalEnvironment) {
     define('DB_HOST', 'localhost');
     define('DB_NAME', 'classmate_db');

@@ -35,7 +35,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if ('serviceWorker' in navigator) {
         let swRegistration;
         
-        navigator.serviceWorker.register('/sw.js')
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        const appRoot = manifestLink
+            ? new URL('./', manifestLink.href)
+            : new URL('./', window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1));
+        const serviceWorkerUrl = new URL('sw.js', appRoot);
+        navigator.serviceWorker.register(serviceWorkerUrl, {scope: appRoot.pathname})
             .then(function(registration) {
                 swRegistration = registration;
                 console.log('Service Worker registered');

@@ -2,7 +2,9 @@
   "name": "ClassMate - Class Representative Management System",
   "short_name": "ClassMate",
   "description": "Complete class management system for students and administrators",
-  "start_url": "/",
+  "start_url": "./",
+  "id": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#4F46E5",
@@ -12,52 +14,22 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "/assets/icons/web-app-manifest-192x192.png",
+      "src": "./assets/icons/web-app-manifest-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/assets/icons/web-app-manifest-512x512.png",
+      "src": "./assets/icons/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/assets/icons/web-app-manifest-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/web-app-manifest-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/apple-touch-icon.png",
+      "src": "./assets/icons/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/web-app-manifest-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/web-app-manifest-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/web-app-manifest-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -65,10 +37,10 @@
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "Go to dashboard",
-      "url": "/student/dashboard.php",
+      "url": "./student/dashboard.php",
       "icons": [
         {
-          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "src": "./assets/icons/web-app-manifest-192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -78,10 +50,10 @@
       "name": "Classes",
       "short_name": "Classes",
       "description": "View your classes",
-      "url": "/student/classes.php",
+      "url": "./student/classes.php",
       "icons": [
         {
-          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "src": "./assets/icons/web-app-manifest-192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -91,10 +63,10 @@
       "name": "Assignments",
       "short_name": "Assignments",
       "description": "View assignments",
-      "url": "/student/assignments.php",
+      "url": "./student/assignments.php",
       "icons": [
         {
-          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "src": "./assets/icons/web-app-manifest-192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
@@ -104,10 +76,10 @@
       "name": "Login",
       "short_name": "Login",
       "description": "Login to ClassMate",
-      "url": "/auth/login.php",
+      "url": "./auth/login.php",
       "icons": [
         {
-          "src": "/assets/icons/web-app-manifest-192x192.png",
+          "src": "./assets/icons/web-app-manifest-192x192.png",
           "sizes": "192x192",
           "type": "image/png"
         }
