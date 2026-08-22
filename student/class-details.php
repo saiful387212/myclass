@@ -53,13 +53,18 @@ include_once BASE_PATH . '/includes/header.php';
 ?>
 
 <div class="dashboard-container">
-    <div class="page-header">
-        <div class="page-header-content">
-            <div>
-                <h1><?php echo htmlspecialchars($class['class_title']); ?></h1>
-                <p class="text-muted"><?php echo htmlspecialchars($class['class_code']); ?> | <?php echo htmlspecialchars($class['course_code']); ?></p>
+    <div class="class-details-hero">
+        <div class="class-details-hero-content">
+            <div class="class-details-kicker"><i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($class['course_code']); ?></div>
+            <h1><?php echo htmlspecialchars($class['class_title']); ?></h1>
+            <div class="class-details-hero-meta">
+                <span><i class="fas fa-hashtag"></i> <?php echo htmlspecialchars($class['class_code']); ?></span>
+                <span><i class="fas fa-chalkboard-teacher"></i> <?php echo htmlspecialchars($class['instructor']); ?></span>
             </div>
-            <a href="<?php echo url('student/classes.php'); ?>" class="btn btn-outline">
+        </div>
+        <div class="class-details-hero-action">
+            <span class="badge badge-<?php echo $class['status']; ?>"><?php echo ucfirst($class['status']); ?></span>
+            <a href="<?php echo url('student/classes.php'); ?>" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back to Classes
             </a>
         </div>
@@ -69,37 +74,37 @@ include_once BASE_PATH . '/includes/header.php';
     <div class="class-info-card">
         <div class="info-grid">
             <div class="info-item">
-                <label>Status</label>
+                <label><i class="fas fa-signal"></i> Status</label>
                 <span class="badge badge-<?php echo $class['status']; ?>"><?php echo ucfirst($class['status']); ?></span>
             </div>
             <div class="info-item">
-                <label>Instructor</label>
+                <label><i class="fas fa-user-tie"></i> Instructor</label>
                 <span><?php echo htmlspecialchars($class['instructor']); ?></span>
             </div>
             <div class="info-item">
-                <label>Date</label>
+                <label><i class="fas fa-calendar-alt"></i> Date</label>
                 <span><?php echo formatDate($class['class_date']); ?></span>
             </div>
             <div class="info-item">
-                <label>Time</label>
+                <label><i class="fas fa-clock"></i> Time</label>
                 <span><?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
             </div>
             <div class="info-item">
-                <label>Room</label>
+                <label><i class="fas fa-map-marker-alt"></i> Room</label>
                 <span><?php echo htmlspecialchars($class['room'] ?? 'TBA'); ?></span>
             </div>
         </div>
         
         <?php if ($class['topic']): ?>
             <div class="info-item full">
-                <label>Topic</label>
+                <label><i class="fas fa-lightbulb"></i> Topic</label>
                 <span><?php echo htmlspecialchars($class['topic']); ?></span>
             </div>
         <?php endif; ?>
         
         <?php if ($class['class_task']): ?>
             <div class="info-item full">
-                <label>Class Task</label>
+                <label><i class="fas fa-list-check"></i> Class Task</label>
                 <span><?php echo nl2br(htmlspecialchars($class['class_task'])); ?></span>
             </div>
         <?php endif; ?>
@@ -108,7 +113,7 @@ include_once BASE_PATH . '/includes/header.php';
     <!-- Materials -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-file-alt"></i> Class Notes & Materials</h3>
+            <h3 class="card-title"><i class="fas fa-file-alt"></i> Class Notes & Materials <span class="section-count"><?php echo count($materials); ?></span></h3>
         </div>
         <div class="card-body">
             <?php if (empty($materials)): ?>
@@ -154,7 +159,7 @@ include_once BASE_PATH . '/includes/header.php';
     <!-- Assignments -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-tasks"></i> Assignments</h3>
+            <h3 class="card-title"><i class="fas fa-tasks"></i> Assignments <span class="section-count"><?php echo count($assignments); ?></span></h3>
         </div>
         <div class="card-body">
             <?php if (empty($assignments)): ?>
