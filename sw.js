@@ -23,13 +23,28 @@ const ASSETS_TO_CACHE = [
   appAsset('assets/js/validation.js')
 ];
 
+function cacheAvailableAssets(cache) {
+  return Promise.all(ASSETS_TO_CACHE.map(function(asset) {
+    return fetch(asset, {cache: 'no-store'}).then(function(response) {
+      if (response.ok) {
+        return cache.put(asset, response);
+      }
+      console.warn('Service Worker: Skipping unavailable asset:', asset);
+      return null;
+    }).catch(function(error) {
+      console.warn('Service Worker: Skipping asset:', asset, error);
+      return null;
+    });
+  }));
+}
+
 // ===== INSTALL EVENT =====
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(function(cache) {
         console.log('Service Worker: Caching assets');
-        return cache.addAll(ASSETS_TO_CACHE);
+        return cacheAvailableAssets(cache);
       })
       .then(function() {
         console.log('Service Worker: Skip waiting');

@@ -41,12 +41,16 @@ try {
     $landingStats['due_soon'] = (int)$stmt->fetchColumn();
 
     $fundTotals = $db->query("
-        SELECT COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0)
-             - COALESCE(SUM(CASE WHEN transaction_type IN ('expenditure', 'refund') THEN amount ELSE 0 END), 0)
+        SELECT
+            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) AS total_income,
+            COALESCE(SUM(CASE WHEN transaction_type = 'expenditure' THEN amount ELSE 0 END), 0) AS total_expenditure,
+            COALESCE(SUM(CASE WHEN transaction_type = 'refund' THEN amount ELSE 0 END), 0) AS total_refunds
         FROM fund_transactions
         WHERE status = 'approved'
-    ")->fetchColumn();
-    $landingStats['fund_balance'] = (float)$fundTotals;
+    ")->fetch();
+    $landingStats['fund_balance'] = (float)$fundTotals['total_income']
+        - (float)$fundTotals['total_expenditure']
+        - (float)$fundTotals['total_refunds'];
 } catch (Throwable $e) {
     error_log('Landing page stats unavailable: ' . $e->getMessage());
 }

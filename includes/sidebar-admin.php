@@ -66,10 +66,11 @@
                 </a>
             </li>
             
-            <li class="nav-item <?php echo isActivePage('admin/funds.php') ? 'active' : ''; ?>">
-                <a href="<?php echo url('admin/funds.php'); ?>" class="nav-link">
+            <li class="nav-item <?php echo isActivePage('admin/fund-events.php') ? 'active' : ''; ?>">
+                <a href="<?php echo htmlspecialchars(url('admin/fund-events.php'), ENT_QUOTES, 'UTF-8'); ?>"
+                   class="nav-link" title="Open Fund Events" aria-label="Open Fund Events">
                     <i class="fas fa-coins"></i>
-                    <span>Class Fund</span>
+                    <span>Fund Events</span>
                 </a>
             </li>
             

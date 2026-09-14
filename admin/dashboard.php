@@ -162,11 +162,11 @@ $monthlyFundData = [];
 try {
     $stmt = $db->query("
         SELECT 
-            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-            COALESCE(SUM(CASE WHEN transaction_type = 'expenditure' THEN amount ELSE 0 END), 0) as total_expenditure,
-            COALESCE(SUM(CASE WHEN transaction_type = 'refund' THEN amount ELSE 0 END), 0) as total_refunds
+            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'income' THEN amount ELSE 0 END), 0) as total_income,
+            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'expenditure' THEN amount ELSE 0 END), 0) as total_expenditure,
+            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'refund' THEN amount ELSE 0 END), 0) as total_refunds
         FROM fund_transactions
-        WHERE status = 'approved'
+        WHERE LOWER(TRIM(status)) = 'approved'
     ");
     $fundTotals = $stmt->fetch();
     $currentBalance = $fundTotals['total_income'] - $fundTotals['total_expenditure'] - $fundTotals['total_refunds'];
