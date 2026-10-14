@@ -14,6 +14,7 @@ $pageJs = ['add-fund-event.js'];
 $isAdmin = true;
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
 
 $error = null;
 $formData = [
@@ -27,7 +28,14 @@ $formData = [
 ];
 
 // Get classes for dropdown
-$stmt = $db->query("SELECT id, class_title, class_code FROM classes WHERE status = 'scheduled' OR status = 'completed' ORDER BY class_title");
+$classSql = "SELECT id, class_title, class_code FROM classes WHERE status IN ('scheduled', 'completed')";
+$classParams = [];
+if ($adminBatchId !== null) {
+    $classSql .= " AND batch_id = ?";
+    $classParams[] = $adminBatchId;
+}
+$stmt = $db->prepare($classSql . " ORDER BY class_title");
+$stmt->execute($classParams);
 $classes = $stmt->fetchAll();
 
 // Handle form submission
@@ -54,14 +62,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (empty($data['event_date'])) {
             $error = 'Event date is required.';
         } else {
+            $classStmt = $db->prepare("SELECT batch_id FROM classes WHERE id = ?");
+            $classStmt->execute([$data['class_id']]);
+            $batchId = (int)($classStmt->fetchColumn() ?: 0);
+            if (!$batchId || ($adminBatchId !== null && $batchId !== $adminBatchId)) {
+                $error = 'Select a class from your assigned batch.';
+            }
+        }
+
+        if (!$error) {
             $stmt = $db->prepare("
                 INSERT INTO fund_events (
-                    class_id, event_name, event_description, event_date,
+                    batch_id, class_id, event_name, event_description, event_date,
                     start_date, end_date, status, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $result = $stmt->execute([
+                $batchId,
                 $data['class_id'],
                 $data['event_name'],
                 $data['event_description'],

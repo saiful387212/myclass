@@ -14,6 +14,7 @@ $pageJs = ['fund-events.js'];
 $isAdmin = true;
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
 
 // Handle actions
 $action = $_GET['action'] ?? '';
@@ -24,13 +25,15 @@ if ($action && $id) {
         Session::setFlash('error', 'Invalid security token');
         redirect(url('admin/fund-events.php'));
     }
+
+    [$actionBatchSql, $actionBatchParams] = Authorization::adminBatchFilter();
     
     if ($action === 'delete') {
         $db->beginTransaction();
         try {
             // Delete event
-            $stmt = $db->prepare("DELETE FROM fund_events WHERE id = ?");
-            $stmt->execute([$id]);
+            $stmt = $db->prepare("DELETE FROM fund_events WHERE id = ?" . $actionBatchSql);
+            $stmt->execute(array_merge([$id], $actionBatchParams));
             
             $db->commit();
             Session::setFlash('success', 'Event deleted successfully!');
@@ -49,9 +52,9 @@ if ($action && $id) {
                 ELSE status 
             END,
             updated_at = NOW()
-            WHERE id = ?
-        ");
-        $result = $stmt->execute([$id]);
+            WHERE id = ?" . $actionBatchSql
+        );
+        $result = $stmt->execute(array_merge([$id], $actionBatchParams));
         if ($result) {
             Session::setFlash('success', 'Event status updated!');
             logActivity('fund_event_status_changed', "Changed event ID: {$id} status");
@@ -91,7 +94,9 @@ $sql = "
     LEFT JOIN admins a ON e.created_by = a.id
     WHERE 1=1
 ";
-$params = [];
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('e');
+$sql .= $batchSql;
+$params = $batchParams;
 
 if (!empty($filters['search'])) {
     $sql .= " AND (e.event_name LIKE ? OR e.event_description LIKE ? OR c.class_title LIKE ?)";
@@ -128,11 +133,15 @@ $stmt->execute($params);
 $events = $stmt->fetchAll();
 
 // Get classes for filter
-$stmt = $db->query("SELECT id, class_title, class_code FROM classes ORDER BY class_title");
+$classSql = "SELECT c.id, c.class_title, c.class_code FROM classes c WHERE 1=1";
+[$classBatchSql, $classBatchParams] = Authorization::adminBatchFilter('c');
+$stmt = $db->prepare($classSql . $classBatchSql . " ORDER BY c.class_title");
+$stmt->execute($classBatchParams);
 $classes = $stmt->fetchAll();
 
 // Get status counts
-$stmt = $db->query("SELECT status, COUNT(*) as count FROM fund_events GROUP BY status");
+$stmt = $db->prepare("SELECT e.status, COUNT(*) as count FROM fund_events e WHERE 1=1" . $batchSql . " GROUP BY e.status");
+$stmt->execute($batchParams);
 $statusCounts = [];
 while ($row = $stmt->fetch()) {
     $statusCounts[$row['status']] = $row['count'];

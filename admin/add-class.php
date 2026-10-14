@@ -17,6 +17,9 @@ $isAdmin = true;
 
 $db = Database::getInstance();
 $classManager = new ClassManager();
+$adminBatchId = Authorization::getAdminBatchId();
+$stmt = $db->query("SELECT id, name, label FROM batches WHERE is_active = 1 ORDER BY FIELD(name, 'First year', 'Second year', 'Third Year', 'Fourth year'), name");
+$batches = $stmt->fetchAll();
 
 $error = null;
 $success = null;
@@ -174,6 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $postedCourseId = $_POST['course_id'] ?? $_POST['selected_course_id'] ?? null;
             $courseId = filter_var($postedCourseId, FILTER_VALIDATE_INT);
             $data = [
+                'batch_id' => $adminBatchId ?? (int)($_POST['batch_id'] ?? 0),
                 'course_id' => $courseId ?: '',
                 'class_code' => trim($_POST['class_code'] ?? ''),
                 'class_title' => trim($_POST['class_title'] ?? ''),
@@ -204,6 +208,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Validate
             if (!$courseId || $courseId < 1) {
                 $error = 'Please select a course.';
+            } elseif (!$data['batch_id']) {
+                $error = 'Please select a batch.';
             } elseif (empty($data['class_code'])) {
                 $error = 'Class code is required.';
             } elseif (empty($data['class_title'])) {
@@ -287,6 +293,22 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
         <div class="card-body">
             <form method="POST" action="" class="class-form" id="addClassForm">
                 <?php echo Security::csrfField(); ?>
+
+                <?php if ($adminBatchId === null): ?>
+                    <div class="form-group">
+                        <label for="batch_id">Batch <span class="required">*</span></label>
+                        <select id="batch_id" name="batch_id" class="form-control" required>
+                            <option value="">-- Select Batch --</option>
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?php echo (int)$batch['id']; ?>" <?php echo (int)($formData['batch_id'] ?? 0) === (int)$batch['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($batch['label'] ?: 'Batch ' . $batch['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php else: ?>
+                    <input type="hidden" name="batch_id" value="<?php echo $adminBatchId; ?>">
+                <?php endif; ?>
                 
                 <!-- ===== COURSE SELECTION ===== -->
                 <div class="form-section">

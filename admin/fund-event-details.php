@@ -14,13 +14,39 @@ $pageCss = ['admin.css', 'fund-events.css'];
 $pageJs = ['fund-events.js', 'charts.js'];
 $isAdmin = true;
 
-$id = $_GET['id'] ?? 0;
-if (!$id) {
+$id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT);
+if ($id === false || $id < 1) {
     Session::setFlash('error', 'Invalid event ID');
     redirect(url('admin/fund-events.php'));
 }
 
 $db = Database::getInstance();
+[$batchSql, $batchParams] = Authorization::adminBatchFilter();
+
+// Handle transaction actions without reusing the event ID parameter.
+$action = $_GET['action'] ?? '';
+$transactionId = filter_var($_GET['transaction_id'] ?? 0, FILTER_VALIDATE_INT);
+if ($action === 'delete' && $transactionId !== false && $transactionId > 0) {
+    if (!Security::verifyCSRFToken($_GET['csrf_token'] ?? '')) {
+        Session::setFlash('error', 'Invalid security token');
+    } else {
+        $transactionStmt = $db->prepare("SELECT class_id FROM fund_transactions WHERE id = ?");
+        $transactionStmt->execute([$transactionId]);
+        $transaction = $transactionStmt->fetch();
+
+        $eventStmt = $db->prepare("SELECT class_id FROM fund_events WHERE id = ?" . $batchSql);
+        $eventStmt->execute(array_merge([$id], $batchParams));
+        $eventClassId = $eventStmt->fetchColumn();
+
+        if (!$transaction || !$eventClassId || (int)$transaction['class_id'] !== (int)$eventClassId) {
+            $result = ['success' => false, 'message' => 'Transaction not found for this event'];
+        } else {
+            $result = (new FundManager())->deleteTransaction($transactionId);
+        }
+        Session::setFlash($result['success'] ? 'success' : 'error', $result['message']);
+    }
+    redirect(url('admin/fund-event-details.php?id=' . (int)$id));
+}
 
 // Get event details
 $stmt = $db->prepare("
@@ -36,9 +62,9 @@ $stmt = $db->prepare("
     FROM fund_events e
     LEFT JOIN classes c ON e.class_id = c.id
     LEFT JOIN admins a ON e.created_by = a.id
-    WHERE e.id = ?
-");
-$stmt->execute([$id]);
+    WHERE e.id = ?" . $batchSql
+);
+$stmt->execute(array_merge([$id], $batchParams));
 $event = $stmt->fetch();
 
 if (!$event) {
@@ -58,7 +84,7 @@ $filters = [
 $sql = "
     SELECT 
         t.*,
-        CASE WHEN t.transaction_type = 'refund' THEN t.payer_receiver ELSE NULL END AS student_name,
+        CASE WHEN t.transaction_type IN ('income', 'refund') THEN t.payer_receiver ELSE NULL END AS student_name,
         a.full_name as created_by_name
     FROM fund_transactions t
     LEFT JOIN admins a ON t.created_by = a.id
@@ -299,11 +325,11 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
                                     <td><?php echo htmlspecialchars($transaction['reference_number'] ?? 'N/A'); ?></td>
                                     <td>
                                         <div class="action-buttons">
-                                            <a href="<?php echo url('admin/edit-fund-transaction.php?id=' . $transaction['id'] . '&event_id=' . $id); ?>" 
+                                            <a href="<?php echo url('admin/edit-fund-transaction.php?id=' . (int)$transaction['id'] . '&event_id=' . (int)$id); ?>" 
                                                class="btn btn-sm btn-primary" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="<?php echo url('admin/fund-event-details.php?action=delete&id=' . $transaction['id'] . '&csrf_token=' . Security::generateCSRFToken()); ?>" 
+                                            <a href="<?php echo url('admin/fund-event-details.php?action=delete&id=' . $id . '&transaction_id=' . $transaction['id'] . '&csrf_token=' . Security::generateCSRFToken()); ?>" 
                                                class="btn btn-sm btn-danger" title="Delete"
                                                onclick="return confirm('Delete this transaction?')">
                                                 <i class="fas fa-trash"></i>

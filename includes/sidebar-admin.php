@@ -11,9 +11,6 @@
             <?php endif; ?>
             <span class="brand-text">ClassMate</span>
         </a>
-        <button class="sidebar-toggle" aria-label="Toggle sidebar">
-            <i class="fas fa-bars"></i>
-        </button>
     </div>
     
     <nav class="sidebar-nav">
@@ -34,7 +31,9 @@
                     <?php 
                     // Get pending registration count
                     $db = Database::getInstance();
-                    $stmt = $db->query("SELECT COUNT(*) FROM registration_requests WHERE status = 'pending'");
+                    [$pendingBatchSql, $pendingBatchParams] = Authorization::adminBatchFilter();
+                    $stmt = $db->prepare("SELECT COUNT(*) FROM registration_requests WHERE status = 'pending'" . $pendingBatchSql);
+                    $stmt->execute($pendingBatchParams);
                     $pending = $stmt->fetchColumn();
                     if ($pending > 0): ?>
                         <span class="badge badge-warning"><?php echo $pending; ?></span>
@@ -58,6 +57,13 @@
                     <span>Classes</span>
                 </a>
             </li>
+
+            <li class="nav-item <?php echo isActivePage('admin/routine.php') ? 'active' : ''; ?>">
+                <a href="<?php echo url('admin/routine.php'); ?>" class="nav-link">
+                    <i class="fas fa-calendar-week"></i>
+                    <span>Weekly Routine</span>
+                </a>
+            </li>
             
             <li class="nav-item <?php echo isActivePage('admin/assignments.php') ? 'active' : ''; ?>">
                 <a href="<?php echo url('admin/assignments.php'); ?>" class="nav-link">
@@ -65,6 +71,12 @@
                     <span>Assignments</span>
                 </a>
             </li>
+            <li class="nav-item <?php echo isActivePage('admin/resources.php') ? 'active' : ''; ?>">
+    <a href="<?php echo url('admin/resources.php'); ?>" class="nav-link">
+        <i class="fas fa-folder-open"></i>
+        <span>Resources</span>
+    </a>
+</li>
             
             <li class="nav-item <?php echo isActivePage('admin/fund-events.php') ? 'active' : ''; ?>">
                 <a href="<?php echo htmlspecialchars(url('admin/fund-events.php'), ENT_QUOTES, 'UTF-8'); ?>"
@@ -92,12 +104,14 @@
             
             <li class="nav-section">Reports</li>
             
-            <li class="nav-item <?php echo isActivePage('admin/cr-accountability.php') ? 'active' : ''; ?>">
-                <a href="<?php echo url('admin/cr-accountability.php'); ?>" class="nav-link">
-                    <i class="fas fa-user-check"></i>
-                    <span>CR Accountability</span>
-                </a>
-            </li>
+            <?php if (Authorization::isSuperAdmin()): ?>
+                <li class="nav-item <?php echo isActivePage('admin/cr-accountability.php') ? 'active' : ''; ?>">
+                    <a href="<?php echo url('admin/cr-accountability.php'); ?>" class="nav-link">
+                        <i class="fas fa-user-check"></i>
+                        <span>CR Accountability</span>
+                    </a>
+                </li>
+            <?php endif; ?>
             
             <li class="nav-item <?php echo isActivePage('admin/financial-reports.php') ? 'active' : ''; ?>">
                 <a href="<?php echo url('admin/financial-reports.php'); ?>" class="nav-link">
@@ -106,21 +120,34 @@
                 </a>
             </li>
             
-            <li class="nav-item <?php echo isActivePage('admin/activity-logs.php') ? 'active' : ''; ?>">
-                <a href="<?php echo url('admin/activity-logs.php'); ?>" class="nav-link">
-                    <i class="fas fa-history"></i>
-                    <span>Activity Logs</span>
-                </a>
-            </li>
+            <?php if (Authorization::isSuperAdmin()): ?>
+                <li class="nav-item <?php echo isActivePage('admin/activity-logs.php') ? 'active' : ''; ?>">
+                    <a href="<?php echo url('admin/activity-logs.php'); ?>" class="nav-link">
+                        <i class="fas fa-history"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
+            <?php endif; ?>
             
             <li class="nav-section">System</li>
+
+            <?php if (Authorization::isSuperAdmin()): ?>
+                <li class="nav-item <?php echo isActivePage('admin/batches.php') ? 'active' : ''; ?>">
+                    <a href="<?php echo url('admin/batches.php'); ?>" class="nav-link">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Batches & Admins</span>
+                    </a>
+                </li>
+            <?php endif; ?>
             
-            <li class="nav-item <?php echo isActivePage('admin/settings.php') ? 'active' : ''; ?>">
-                <a href="<?php echo url('admin/settings.php'); ?>" class="nav-link">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
-            </li>
+            <?php if (Authorization::isSuperAdmin()): ?>
+                <li class="nav-item <?php echo isActivePage('admin/settings.php') ? 'active' : ''; ?>">
+                    <a href="<?php echo url('admin/settings.php'); ?>" class="nav-link">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            <?php endif; ?>
 
             <li class="nav-item">
                 <a href="#" class="nav-link" onclick="installApp(); return false;">

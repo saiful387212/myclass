@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 if ($file && $file['name']) {
                     $upload = new SecureFileUpload($file, UPLOAD_ASSIGNMENTS);
-                    $upload->setAllowedExtensions(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt']);
+                    $upload->setAllowedExtensions(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt', 'jpg', 'jpeg', 'png', 'gif']);
                     $upload->setMaxSize(10485760);
                     
                     if ($upload->upload()) {

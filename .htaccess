@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteRule ^ https://classmate.site.je%{REQUEST_URI} [R=302,L]
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+    AddType application/manifest+json .json
+    AddType application/javascript .js
+</IfModule>

@@ -41,6 +41,11 @@ $filters = [
 // ============================================
 // GET ANNOUNCEMENTS
 // ============================================
+// Get student's batch_id for scoping
+$batchStmt = $db->prepare("SELECT batch_id FROM students WHERE id = ? LIMIT 1");
+$batchStmt->execute([$studentId]);
+$studentBatchId = (int)($batchStmt->fetchColumn() ?: 0);
+
 $sql = "
     SELECT 
         a.*,
@@ -52,13 +57,17 @@ $sql = "
     LEFT JOIN admins adm ON a.created_by = adm.id
     LEFT JOIN classes c ON a.class_id = c.id
     WHERE a.status = 'published'
-    AND (a.target_audience = 'all' OR a.target_audience = 'students')
-    AND (a.class_id IS NULL OR a.class_id IN (" . implode(',', $classIds) . "))
+    AND (
+        a.target_audience = 'all'
+        OR a.target_audience = 'students'
+        OR (a.target_audience = 'specific_class' AND a.class_id IN (" . implode(',', $classIds) . "))
+    )
     AND (a.start_date <= NOW() OR a.start_date IS NULL)
     AND (a.end_date >= NOW() OR a.end_date IS NULL)
+    AND a.batch_id = ?
 ";
 
-$params = [];
+$params = [$studentBatchId];
 
 if (!empty($filters['search'])) {
     $sql .= " AND (a.title LIKE ? OR a.content LIKE ?)";
@@ -86,12 +95,13 @@ $announcements = $stmt->fetchAll();
 // ============================================
 // GET ANNOUNCEMENT TYPES FOR FILTER
 // ============================================
-$stmt = $db->query("
+$stmt = $db->prepare("
     SELECT DISTINCT announcement_type 
     FROM announcements 
-    WHERE status = 'published'
+    WHERE status = 'published' AND batch_id = ?
     ORDER BY announcement_type
 ");
+$stmt->execute([$studentBatchId]);
 $types = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // ============================================

@@ -15,6 +15,7 @@ $pageJs = ['add-fund-transaction.js'];
 $isAdmin = true;
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
 
 $eventId = $_GET['event_id'] ?? 0;
 if (!$eventId) {
@@ -27,9 +28,9 @@ $stmt = $db->prepare("
     SELECT e.*, c.class_title, c.class_code 
     FROM fund_events e
     JOIN classes c ON e.class_id = c.id
-    WHERE e.id = ? AND e.status = 'active'
+    WHERE e.id = ? AND e.status = 'active'" . ($adminBatchId !== null ? " AND e.batch_id = ?" : "") . "
 ");
-$stmt->execute([$eventId]);
+$stmt->execute($adminBatchId !== null ? [$eventId, $adminBatchId] : [$eventId]);
 $event = $stmt->fetch();
 
 if (!$event) {
@@ -37,14 +38,14 @@ if (!$event) {
     redirect(url('admin/fund-events.php'));
 }
 
-// Get students for refund dropdown
+// Get students for income and refund transactions
 $stmt = $db->prepare("
     SELECT id, full_name, class_roll 
     FROM students 
-    WHERE status = 'active'
+    WHERE status = 'active' AND batch_id = ?
     ORDER BY full_name
 ");
-$stmt->execute();
+$stmt->execute([$event['batch_id']]);
 $students = $stmt->fetchAll();
 
 $error = null;
@@ -85,12 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_by' => Session::get('user_id')
         ];
 
-        if ($data['transaction_type'] === 'refund' && !empty($data['student_id'])) {
+        if (in_array($data['transaction_type'], ['income', 'refund'], true) && !empty($data['student_id'])) {
             $studentStmt = $db->prepare("SELECT full_name, class_roll FROM students WHERE id = ? AND status = 'active'");
             $studentStmt->execute([$data['student_id']]);
-            $refundStudent = $studentStmt->fetch();
-            if ($refundStudent) {
-                $data['payer_receiver'] = $refundStudent['full_name'] . ' (' . $refundStudent['class_roll'] . ')';
+            $selectedStudent = $studentStmt->fetch();
+            if ($selectedStudent) {
+                $data['payer_receiver'] = $selectedStudent['full_name'] . ' (' . $selectedStudent['class_roll'] . ')';
             }
         }
         
@@ -194,12 +195,12 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
                     </div>
                 </div>
                 
-                <div class="form-group" id="studentSelect" style="<?php echo $transactionType === 'refund' ? 'display:block;' : 'display:none;'; ?>">
-                    <label for="student_id">Student (for refund)</label>
+                <div class="form-group" id="studentSelect" style="<?php echo in_array($transactionType, ['income', 'refund'], true) ? 'display:block;' : 'display:none;'; ?>">
+                    <label for="student_id">Student</label>
                     <select id="student_id" name="student_id" class="form-control">
                         <option value="">Select Student</option>
                         <?php foreach ($students as $student): ?>
-                            <option value="<?php echo $student['id']; ?>">
+                            <option value="<?php echo $student['id']; ?>" <?php echo $formData['student_id'] == $student['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($student['full_name'] . ' (' . $student['class_roll'] . ')'); ?>
                             </option>
                         <?php endforeach; ?>
@@ -282,12 +283,13 @@ function updateType(type) {
     });
     document.querySelector(`.type-option.${type}`).classList.add('selected');
     
-    // Show/hide student select for refunds
+    // Show/hide student select for income and refunds
     const studentSelect = document.getElementById('studentSelect');
-    if (type === 'refund') {
+    if (type === 'income' || type === 'refund') {
         studentSelect.style.display = 'block';
     } else {
         studentSelect.style.display = 'none';
+        document.getElementById('student_id').value = '';
     }
 }
 </script>

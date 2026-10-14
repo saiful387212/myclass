@@ -69,14 +69,14 @@ include_once BASE_PATH . '/includes/header.php';
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="" class="auth-form" autocomplete="off">
+            <form method="POST" action="" class="auth-form" autocomplete="on">
                 <?php echo Security::csrfField(); ?>
                 
                 <div class="form-group">
                     <label for="class_roll">Class Roll</label>
                     <div class="input-group">
                         <span class="input-icon"><i class="fas fa-id-badge"></i></span>
-                        <input type="text" id="class_roll" name="class_roll" 
+                        <input type="text" id="class_roll" name="class_roll" autocomplete="username"
                                value="<?php echo htmlspecialchars($classRoll); ?>" 
                                placeholder="Enter your class roll" required>
                     </div>
@@ -86,7 +86,7 @@ include_once BASE_PATH . '/includes/header.php';
                     <label for="pin">PIN</label>
                     <div class="input-group">
                         <span class="input-icon"><i class="fas fa-lock"></i></span>
-                        <input type="password" id="pin" name="pin" 
+                        <input type="password" id="pin" name="pin" autocomplete="current-password"
                                placeholder="Enter your PIN" required>
                         <button type="button" class="toggle-pin" onclick="togglePinVisibility()">
                             <i class="fas fa-eye"></i>

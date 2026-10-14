@@ -3,7 +3,7 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'classmate-v2.0.1';
+const CACHE_NAME = 'classmate-v2.0.2';
 const APP_ROOT = new URL('./', self.location.href).pathname;
 const OFFLINE_URL = APP_ROOT + 'offline.html';
 const appAsset = function(path) {
@@ -26,7 +26,9 @@ const ASSETS_TO_CACHE = [
 function cacheAvailableAssets(cache) {
   return Promise.all(ASSETS_TO_CACHE.map(function(asset) {
     return fetch(asset, {cache: 'no-store'}).then(function(response) {
-      if (response.ok) {
+      const contentType = response.headers.get('Content-Type') || '';
+      const isHtmlPage = asset === APP_ROOT || asset === OFFLINE_URL;
+      if (response.ok && (isHtmlPage || !/text\/html/i.test(contentType))) {
         return cache.put(asset, response);
       }
       console.warn('Service Worker: Skipping unavailable asset:', asset);
@@ -106,10 +108,12 @@ self.addEventListener('fetch', function(event) {
       fetch(event.request)
         .then(function(response) {
           // Cache the fetched page
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then(function(cache) {
-            cache.put(event.request, responseClone);
-          });
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(function(cache) {
+              cache.put(event.request, responseClone);
+            });
+          }
           return response;
         })
         .catch(function() {
@@ -133,6 +137,10 @@ self.addEventListener('fetch', function(event) {
         if (cachedResponse) {
           // Return cached response and update cache in background
           fetch(event.request).then(function(networkResponse) {
+            const contentType = networkResponse.headers.get('Content-Type') || '';
+            if (!networkResponse.ok || /text\/html/i.test(contentType)) {
+              return;
+            }
             caches.open(CACHE_NAME).then(function(cache) {
               cache.put(event.request, networkResponse);
             });
@@ -144,6 +152,10 @@ self.addEventListener('fetch', function(event) {
         // Not in cache - fetch from network
         return fetch(event.request)
           .then(function(networkResponse) {
+            const contentType = networkResponse.headers.get('Content-Type') || '';
+            if (!networkResponse.ok || /text\/html/i.test(contentType)) {
+              return networkResponse;
+            }
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then(function(cache) {
               cache.put(event.request, responseClone);

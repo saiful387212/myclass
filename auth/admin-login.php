@@ -69,14 +69,14 @@ include_once BASE_PATH . '/includes/header.php';
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="" class="auth-form">
+            <form method="POST" action="" class="auth-form" autocomplete="on">
                 <?php echo Security::csrfField(); ?>
                 
                 <div class="form-group">
                     <label for="username">Username or Email</label>
                     <div class="input-group">
                         <span class="input-icon"><i class="fas fa-user-shield"></i></span>
-                        <input type="text" id="username" name="username" 
+                        <input type="text" id="username" name="username" autocomplete="username"
                                value="<?php echo htmlspecialchars($username); ?>" 
                                placeholder="Enter username or email" required>
                     </div>
@@ -86,7 +86,7 @@ include_once BASE_PATH . '/includes/header.php';
                     <label for="password">Password</label>
                     <div class="input-group">
                         <span class="input-icon"><i class="fas fa-lock"></i></span>
-                        <input type="password" id="password" name="password" 
+                        <input type="password" id="password" name="password" autocomplete="current-password"
                                placeholder="Enter your password" required>
                         <button type="button" class="toggle-pin" onclick="togglePasswordVisibility()">
                             <i class="fas fa-eye"></i>

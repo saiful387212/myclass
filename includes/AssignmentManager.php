@@ -21,6 +21,14 @@ class AssignmentManager {
                     return ['success' => false, 'message' => "Field '{$field}' is required"];
                 }
             }
+
+            if (Authorization::isBatchAdmin()) {
+                $stmt = $this->db->prepare("SELECT id FROM classes WHERE id = ? AND batch_id = ?");
+                $stmt->execute([$data['class_id'], Authorization::getAdminBatchId()]);
+                if (!$stmt->fetchColumn()) {
+                    return ['success' => false, 'message' => 'Select a class from your assigned batch'];
+                }
+            }
             
             $stmt = $this->db->prepare("
                 INSERT INTO assignments (
@@ -67,6 +75,14 @@ class AssignmentManager {
      */
     public function update($id, $data) {
         try {
+            if (Authorization::isBatchAdmin() && !empty($data['class_id'])) {
+                $classStmt = $this->db->prepare("SELECT id FROM classes WHERE id = ? AND batch_id = ?");
+                $classStmt->execute([$data['class_id'], Authorization::getAdminBatchId()]);
+                if (!$classStmt->fetchColumn()) {
+                    return ['success' => false, 'message' => 'Select a class from your assigned batch'];
+                }
+            }
+
             $fields = [];
             $params = [];
             
@@ -89,6 +105,10 @@ class AssignmentManager {
             
             $params[] = $id;
             $sql = "UPDATE assignments SET " . implode(', ', $fields) . " WHERE id = ?";
+            if (Authorization::isBatchAdmin()) {
+                $sql .= " AND class_id IN (SELECT id FROM classes WHERE batch_id = ?)";
+                $params[] = Authorization::getAdminBatchId();
+            }
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute($params);
             
@@ -108,6 +128,13 @@ class AssignmentManager {
      */
     public function delete($id) {
         try {
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter('c');
+            $scopeStmt = $this->db->prepare("SELECT a.id FROM assignments a JOIN classes c ON c.id = a.class_id WHERE a.id = ?" . $batchSql);
+            $scopeStmt->execute(array_merge([$id], $batchParams));
+            if (!$scopeStmt->fetchColumn()) {
+                return ['success' => false, 'message' => 'Assignment not found'];
+            }
+
             // Check if there are submissions
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = ?");
             $stmt->execute([$id]);
@@ -129,8 +156,14 @@ class AssignmentManager {
                 }
             }
             
-            $stmt = $this->db->prepare("DELETE FROM assignments WHERE id = ?");
-            $result = $stmt->execute([$id]);
+            $deleteSql = "DELETE FROM assignments WHERE id = ?";
+            $deleteParams = [$id];
+            if (Authorization::isBatchAdmin()) {
+                $deleteSql .= " AND class_id IN (SELECT id FROM classes WHERE batch_id = ?)";
+                $deleteParams[] = Authorization::getAdminBatchId();
+            }
+            $stmt = $this->db->prepare($deleteSql);
+            $result = $stmt->execute($deleteParams);
             
             if ($result) {
                 logActivity('assignment_deleted', "Deleted assignment ID: {$id}");
@@ -157,8 +190,16 @@ class AssignmentManager {
             JOIN classes c ON a.class_id = c.id
             JOIN courses crs ON c.course_id = crs.id
             WHERE a.id = ?
+            " . (Authorization::isBatchAdmin() ? "AND c.batch_id = ?" : (Authorization::isStudent() ? "AND c.batch_id = ? AND EXISTS (SELECT 1 FROM class_enrollments ce WHERE ce.class_id = c.id AND ce.student_id = ? AND ce.status = 'active')" : "")) . "
         ");
-        $stmt->execute([$id]);
+        $params = [$id];
+        if (Authorization::isBatchAdmin()) {
+            $params[] = Authorization::getAdminBatchId();
+        } elseif (Authorization::isStudent()) {
+            $params[] = Authorization::getStudentBatchId() ?? 0;
+            $params[] = Session::get('user_id');
+        }
+        $stmt->execute($params);
         return $stmt->fetch();
     }
     
@@ -177,6 +218,14 @@ class AssignmentManager {
             WHERE 1=1
         ";
         $params = [];
+
+        if ($admin && Authorization::isBatchAdmin()) {
+            $sql .= " AND c.batch_id = ?";
+            $params[] = Authorization::getAdminBatchId();
+        } elseif (!$admin && Authorization::isStudent()) {
+            $sql .= " AND c.batch_id = ?";
+            $params[] = Authorization::getStudentBatchId() ?? 0;
+        }
         
         if (!$admin) {
             $sql .= " AND a.status IN ('published', 'open')";
@@ -236,7 +285,14 @@ class AssignmentManager {
             AND ce.status = 'active'
             AND a.status IN ('published', 'open')
         ";
-        $params = [$studentId, $studentId, $studentId, $studentId];
+        $params = [
+            $studentId,
+            $studentId,
+            $studentId,
+            $studentId,
+            Authorization::getStudentBatchId() ?? 0
+        ];
+        $sql = str_replace("AND a.status IN ('published', 'open')", "AND c.batch_id = ?\n            AND a.status IN ('published', 'open')", $sql);
         
         if (!empty($filters['search'])) {
             $sql .= " AND (a.title LIKE ? OR c.class_title LIKE ? OR crs.course_code LIKE ?)";

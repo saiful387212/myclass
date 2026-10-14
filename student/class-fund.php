@@ -26,6 +26,12 @@ $stmt = $db->prepare("
 $stmt->execute([$studentId]);
 $classIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
+$batchId = (int)(Authorization::getStudentBatchId() ?? 0);
+$stmt = $db->prepare("SELECT id FROM classes WHERE batch_id = ?");
+$stmt->execute([$batchId]);
+$batchClassIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+$classIds = array_values(array_intersect($classIds, $batchClassIds));
+
 // If no classes, use 0 to prevent SQL error
 $classIds = $classIds ?: [0];
 
@@ -92,10 +98,10 @@ $stmt = $db->prepare("
     SELECT DISTINCT c.id, c.class_title, c.class_code 
     FROM classes c
     JOIN class_enrollments ce ON c.id = ce.class_id
-    WHERE ce.student_id = ? AND ce.status = 'active'
+    WHERE ce.student_id = ? AND ce.status = 'active' AND c.batch_id = ?
     ORDER BY c.class_title
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $batchId]);
 $classes = $stmt->fetchAll();
 
 // ============================================
@@ -344,13 +350,14 @@ function viewEventDetails(eventId) {
                                         <th>Amount</th>
                                         <th>Description</th>
                                         <th>Date</th>
+                                        <th>Student</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                 `;
                 
                 if (transactions.length === 0) {
-                    html += `<tr><td colspan="5" class="text-center">No transactions found</td></tr>`;
+                    html += `<tr><td colspan="6" class="text-center">No transactions found</td></tr>`;
                 } else {
                     transactions.forEach(t => {
                         const typeClass = t.transaction_type;
@@ -368,6 +375,7 @@ function viewEventDetails(eventId) {
                                 <td class="amount-${typeClass}">BDT ${Number(t.amount).toFixed(2)}</td>
                                 <td>${t.description}</td>
                                 <td>${t.transaction_date}</td>
+                                <td>${t.student_name || 'N/A'}</td>
                             </tr>
                         `;
                     });

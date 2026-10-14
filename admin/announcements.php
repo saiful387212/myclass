@@ -27,11 +27,13 @@ if ($action && $id) {
         Session::setFlash('error', 'Invalid security token');
         redirect(url('admin/announcements.php'));
     }
+
+    [$actionBatchSql, $actionBatchParams] = Authorization::adminBatchFilter();
     
     if ($action === 'delete') {
         // Delete announcement
-        $stmt = $db->prepare("DELETE FROM announcements WHERE id = ?");
-        $result = $stmt->execute([$id]);
+        $stmt = $db->prepare("DELETE FROM announcements WHERE id = ?" . $actionBatchSql);
+        $result = $stmt->execute(array_merge([$id], $actionBatchParams));
         
         if ($result) {
             Session::setFlash('success', 'Announcement deleted successfully!');
@@ -50,9 +52,9 @@ if ($action && $id) {
                 ELSE 'published' 
             END,
             updated_at = NOW()
-            WHERE id = ?
-        ");
-        $result = $stmt->execute([$id]);
+            WHERE id = ?" . $actionBatchSql
+        );
+        $result = $stmt->execute(array_merge([$id], $actionBatchParams));
         
         if ($result) {
             Session::setFlash('success', 'Announcement status updated!');
@@ -65,9 +67,9 @@ if ($action && $id) {
         $stmt = $db->prepare("
             UPDATE announcements 
             SET status = 'archived', updated_at = NOW() 
-            WHERE id = ?
-        ");
-        $result = $stmt->execute([$id]);
+            WHERE id = ?" . $actionBatchSql
+        );
+        $result = $stmt->execute(array_merge([$id], $actionBatchParams));
         
         if ($result) {
             Session::setFlash('success', 'Announcement archived!');
@@ -107,6 +109,11 @@ $sql = "
 ";
 $params = [];
 
+// Batch scope
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('a');
+$sql .= $batchSql;
+$params = array_merge($params, $batchParams);
+
 if (!empty($filters['search'])) {
     $sql .= " AND (a.title LIKE ? OR a.content LIKE ?)";
     $search = '%' . $filters['search'] . '%';
@@ -138,23 +145,27 @@ $announcements = $stmt->fetchAll();
 // ============================================
 // GET ANNOUNCEMENT TYPES FOR FILTER
 // ============================================
-$stmt = $db->query("
-    SELECT DISTINCT announcement_type 
-    FROM announcements 
-    ORDER BY announcement_type
+$stmt = $db->prepare("
+    SELECT DISTINCT a.announcement_type
+    FROM announcements a
+    WHERE 1=1" . $batchSql . "
+    ORDER BY a.announcement_type
 ");
+$stmt->execute($batchParams);
 $types = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 // ============================================
 // GET STATUS COUNTS
 // ============================================
-$stmt = $db->query("
+$stmt = $db->prepare("
     SELECT 
-        status,
+        a.status,
         COUNT(*) as count
-    FROM announcements
-    GROUP BY status
+    FROM announcements a
+    WHERE 1=1" . $batchSql . "
+    GROUP BY a.status
 ");
+$stmt->execute($batchParams);
 $statusCounts = [];
 while ($row = $stmt->fetch()) {
     $statusCounts[$row['status']] = $row['count'];

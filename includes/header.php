@@ -52,7 +52,7 @@
     ?>
     <!-- ===== PWA META TAGS ===== -->
 <!-- Basic PWA Meta -->
-<link rel="manifest" href="<?php echo url('manifest.json'); ?>">
+<link rel="manifest" href="<?php echo url('manifest.json'); ?>?v=<?php echo rawurlencode(APP_VERSION); ?>">
 <meta name="theme-color" content="#4F46E5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -73,34 +73,6 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('<?php echo url('sw.js'); ?>')
             .then(function(registration) {
                 console.log('ServiceWorker registration successful');
-                
-                // Check for updates
-                registration.addEventListener('updatefound', function() {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', function() {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New version available
-                            const updateBtn = document.createElement('div');
-                            updateBtn.className = 'update-notification';
-                            updateBtn.innerHTML = `
-                                <div class="update-content">
-                                    <i class="fas fa-sync-alt fa-spin"></i>
-                                    <span>New version available! Click to update.</span>
-                                    <button onclick="updateApp()" class="btn btn-sm btn-primary">Update Now</button>
-                                </div>
-                            `;
-                            document.body.appendChild(updateBtn);
-                            
-                            // Auto-hide after 10 seconds
-                            setTimeout(function() {
-                                updateBtn.style.opacity = '0';
-                                setTimeout(function() {
-                                    updateBtn.remove();
-                                }, 500);
-                            }, 10000);
-                        }
-                    });
-                });
             })
             .catch(function(error) {
                 console.log('ServiceWorker registration failed:', error);
@@ -125,6 +97,25 @@ function updateApp() {
 
 // ===== Prompt to Install PWA =====
 let deferredPrompt;
+let installPromptElement;
+
+function createInstallPrompt() {
+    if (installPromptElement || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        return;
+    }
+
+    installPromptElement = document.createElement('div');
+    installPromptElement.className = 'install-prompt';
+    installPromptElement.innerHTML = `
+        <div class="install-content">
+            <i class="fas fa-download"></i>
+            <span>Install ClassMate App</span>
+            <button onclick="installApp()" class="btn btn-sm btn-success">Install</button>
+            <button onclick="dismissInstall()" class="btn btn-sm btn-outline" aria-label="Dismiss install prompt">×</button>
+        </div>
+    `;
+    document.body.appendChild(installPromptElement);
+}
 
 window.addEventListener('beforeinstallprompt', function(e) {
     // Prevent Chrome 67 and earlier from automatically showing the prompt
@@ -132,18 +123,20 @@ window.addEventListener('beforeinstallprompt', function(e) {
     // Stash the event so it can be triggered later
     deferredPrompt = e;
     
-    // Show install button
-    const installBtn = document.createElement('div');
-    installBtn.className = 'install-prompt';
-    installBtn.innerHTML = `
-        <div class="install-content">
-            <i class="fas fa-download"></i>
-            <span>Install ClassMate App</span>
-            <button onclick="installApp()" class="btn btn-sm btn-success">Install</button>
-            <button onclick="dismissInstall()" class="btn btn-sm btn-outline">×</button>
-        </div>
-    `;
-    document.body.appendChild(installBtn);
+    createInstallPrompt();
+});
+
+// Keep a visible fallback for browsers that do not expose beforeinstallprompt.
+window.addEventListener('load', function() {
+    setTimeout(createInstallPrompt, 1500);
+});
+
+window.addEventListener('appinstalled', function() {
+    deferredPrompt = null;
+    if (installPromptElement) {
+        installPromptElement.remove();
+        installPromptElement = null;
+    }
 });
 
 function installApp() {
@@ -159,7 +152,10 @@ function installApp() {
             
             // Remove install button
             const prompt = document.querySelector('.install-prompt');
-            if (prompt) prompt.remove();
+            if (prompt) {
+                prompt.remove();
+                installPromptElement = null;
+            }
         });
     } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
         alert('ClassMate is already installed.');
@@ -174,9 +170,36 @@ function installApp() {
         if (isIOS) {
             alert('To install the app on iOS, tap the Share icon at the bottom of the screen and select "Add to Home Screen".');
         } else {
-            alert('This browser does not support the automatic install button. Open ClassMate in Chrome or Edge, then use the browser menu and choose "Install ClassMate".');
+            showInstallHelp();
         }
     }
+}
+
+function showInstallHelp() {
+    const existingHelp = document.getElementById('installHelp');
+    if (existingHelp) {
+        existingHelp.hidden = false;
+        return;
+    }
+
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const instructions = isAndroid
+        ? 'Chrome cannot install ClassMate as an app right now. To add it to your home screen, choose <strong>Create shortcut</strong> in the Chrome menu. The shortcut will open ClassMate in Chrome.'
+        : 'Open this page in the latest Chrome or Edge browser. Open the browser menu, then choose <strong>Install ClassMate</strong> or <strong>Add to Home screen</strong>.';
+    const help = document.createElement('div');
+    help.id = 'installHelp';
+    help.setAttribute('role', 'dialog');
+    help.setAttribute('aria-modal', 'true');
+    help.innerHTML = `
+        <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+            <div style="background:#fff;border-radius:8px;max-width:420px;padding:24px;box-shadow:0 12px 32px rgba(0,0,0,.25);">
+                <h3 style="margin:0 0 12px;color:#111827;">Install ClassMate</h3>
+                <p style="margin:0 0 16px;color:#374151;line-height:1.5;">${instructions}</p>
+                <button type="button" onclick="document.getElementById('installHelp').remove()" class="btn btn-primary">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(help);
 }
 
 function dismissInstall() {
@@ -413,6 +436,10 @@ function showToast(message, type) {
                                 <a href="<?php echo url('admin/announcements.php'); ?>" class="dropdown-item">
                                     <i class="fas fa-bullhorn"></i> Post Announcement
                                 </a>
+                                <a href="<?php echo url('resources_notes.php'); ?>" class="mobile-nav-item">
+    <i class="fas fa-folder-open"></i>
+    <span>Resources</span>
+</a>
                             <?php else: ?>
                                 <a href="<?php echo url('student/classes.php'); ?>" class="dropdown-item">
                                     <i class="fas fa-book"></i> View Classes

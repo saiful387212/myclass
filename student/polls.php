@@ -15,6 +15,7 @@ $isStudent = true;
 
 $db = Database::getInstance();
 $studentId = Session::get('user_id');
+$studentBatchId = (int)(Authorization::getStudentBatchId() ?? 0);
 
 // Get student's class enrollments
 $stmt = $db->prepare("
@@ -33,11 +34,12 @@ $sql = "
         (SELECT COUNT(*) FROM poll_votes WHERE poll_id = p.id) as total_votes
     FROM polls p
     WHERE p.status = 'active'
+    AND p.batch_id = ?
     AND (p.class_id IS NULL OR p.class_id IN (" . implode(',', $classIds ?: [0]) . "))
     ORDER BY p.created_at DESC
 ";
 $stmt = $db->prepare($sql);
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $polls = $stmt->fetchAll();
 
 include_once BASE_PATH . '/includes/header.php';

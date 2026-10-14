@@ -147,7 +147,7 @@ class Auth {
         Session::remove($attemptKey . '_lockout');
         
         // Login successful
-        self::createSession($admin['id'], 'admin');
+        self::createSession($admin['id'], 'admin', $admin['batch_id'] ?? null);
         
         // Update last login
         $stmt = $db->prepare("UPDATE admins SET last_login = NOW() WHERE id = ?");
@@ -162,12 +162,15 @@ class Auth {
     /**
      * Create user session
      */
-    private static function createSession($userId, $userType) {
+    private static function createSession($userId, $userType, $batchId = null) {
         Session::set('user_id', $userId);
         Session::set('user_type', $userType);
         Session::set('logged_in', true);
         Session::set('login_time', time());
         Session::set('last_activity', time());
+        if ($userType === 'admin') {
+            Session::set('admin_batch_id', $batchId); // null = super admin
+        }
         Session::regenerate();
         
         // Set session cookie parameters

@@ -8,14 +8,9 @@
         <a href="<?php echo url('student/dashboard.php'); ?>" class="sidebar-brand">
             <?php if (file_exists(BASE_PATH . '/assets/images/logo.svg')): ?>
                 <img src="<?php echo asset('images/logo.svg'); ?>" alt="ClassMate" class="brand-icon">
-            <?php else: ?>
-                <span class="brand-text">ClassMate</span>
             <?php endif; ?>
             <span class="brand-text">ClassMate</span>
         </a>
-        <button class="sidebar-toggle" aria-label="Toggle sidebar">
-            <i class="fas fa-bars"></i>
-        </button>
     </div>
     
     <nav class="sidebar-nav">
@@ -40,6 +35,12 @@
                     <span>Assignments</span>
                 </a>
             </li>
+        <li class="nav-item">
+    <a href="<?php echo url('resources_course.php'); ?>" class="nav-link">
+        <i class="fas fa-folder-open"></i>
+        <span>Resources</span>
+    </a>
+</li>
             
             <li class="nav-item <?php echo isActivePage('student/polls.php') ? 'active' : ''; ?>">
                 <a href="<?php echo url('student/polls.php'); ?>" class="nav-link">

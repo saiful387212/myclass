@@ -110,15 +110,21 @@ class SecureFileUpload {
         }
         
         // Additional security: Check for executable content
-        $dangerousSignatures = [
-            '<?php', '<?=', '<?xml', '<%', '<script', 'eval(', 'exec(', 'system('
-        ];
+        // Only check text-based files for dangerous signatures to avoid false positives in binaries
+        $mimeType = isset($this->fileInfo['mime_type']) ? $this->fileInfo['mime_type'] : '';
+        $isTextFile = strpos($mimeType, 'text/') === 0 || $mimeType === 'image/svg+xml';
         
-        $content = file_get_contents($this->file['tmp_name']);
-        foreach ($dangerousSignatures as $signature) {
-            if (stripos($content, $signature) !== false) {
-                $this->errors[] = 'File contains potentially dangerous content';
-                return false;
+        if ($isTextFile) {
+            $dangerousSignatures = [
+                '<?php', '<?=', '<%', '<script', 'eval(', 'exec(', 'system('
+            ];
+            
+            $content = file_get_contents($this->file['tmp_name']);
+            foreach ($dangerousSignatures as $signature) {
+                if (stripos($content, $signature) !== false) {
+                    $this->errors[] = 'File contains potentially dangerous content';
+                    return false;
+                }
             }
         }
         

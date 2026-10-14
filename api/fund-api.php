@@ -10,6 +10,16 @@ header('Content-Type: application/json');
 
 $db = Database::getInstance();
 $action = $_GET['action'] ?? '';
+$userType = Session::get('user_type');
+$batchSql = '';
+$batchParams = [];
+if ($userType === 'student') {
+    $batchSql = ' AND e.batch_id = ?';
+    $batchParams[] = Authorization::getStudentBatchId() ?? 0;
+} elseif (Authorization::isBatchAdmin()) {
+    $batchSql = ' AND e.batch_id = ?';
+    $batchParams[] = Authorization::getAdminBatchId();
+}
 
 switch ($action) {
     case 'get_event_details':
@@ -33,9 +43,9 @@ switch ($action) {
                  FROM fund_transactions WHERE class_id = e.class_id AND status = 'approved') as total_refunds
             FROM fund_events e
             JOIN classes c ON e.class_id = c.id
-            WHERE e.id = ?
-        ");
-        $stmt->execute([$eventId]);
+            WHERE e.id = ?" . $batchSql
+        );
+        $stmt->execute(array_merge([$eventId], $batchParams));
         $event = $stmt->fetch();
         
         if (!$event) {
@@ -54,7 +64,8 @@ switch ($action) {
                 description,
                 transaction_date,
                 reference_number,
-                payer_receiver
+                payer_receiver,
+                CASE WHEN transaction_type IN ('income', 'refund') THEN payer_receiver ELSE NULL END AS student_name
             FROM fund_transactions
             WHERE class_id = ? AND status = 'approved'
             ORDER BY transaction_date DESC

@@ -68,6 +68,7 @@ try {
         Session::setFlash('error', 'Student not found.');
         redirect(url('auth/logout.php'));
     }
+    $studentBatchId = (int)($student['batch_id'] ?? 0);
 
     $stmt = $db->prepare("
         INSERT INTO class_enrollments (student_id, class_id, status)
@@ -75,34 +76,40 @@ try {
         FROM classes c
         LEFT JOIN class_enrollments ce
             ON ce.student_id = ? AND ce.class_id = c.id
-        WHERE ce.id IS NULL
+        WHERE ce.id IS NULL AND c.batch_id = ?
     ");
-    $stmt->execute([$studentId, $studentId]);
+    $stmt->execute([$studentId, $studentId, $studentBatchId]);
 
 // ============================================
 // TODAY'S CLASSES
 // ============================================
 $today = date('Y-m-d');
+$currentDay = date('l'); // e.g., 'Sunday', 'Monday'
 
-// Get today's classes
+// Get today's classes from weekly routine
 $stmt = $db->prepare("
     SELECT 
-        c.*,
-        crs.course_code,
-        crs.course_title,
+        cr.id as id,
+        cr.course_id,
+        cr.class_code,
+        cr.class_title,
+        cr.start_time,
+        cr.end_time,
+        cr.room,
+        cr.instructor,
+        'scheduled' as status,
+        crs.course_code as crs_course_code,
+        crs.course_title as crs_course_title,
         crs.credits,
-        ce.status as enrollment_status,
+        'active' as enrollment_status,
         0 as attended,
         0 as total_attendance
-    FROM classes c
-    JOIN courses crs ON c.course_id = crs.id
-    JOIN class_enrollments ce ON c.id = ce.class_id
-    WHERE ce.student_id = ? 
-    AND c.class_date = ?
-    AND ce.status = 'active'
-    ORDER BY c.start_time ASC
+    FROM class_routines cr
+    JOIN courses crs ON cr.course_id = crs.id
+    WHERE cr.day_of_week = ? AND cr.batch_id = ?
+    ORDER BY cr.start_time ASC
 ");
-    $stmt->execute([$studentId, $today]);
+$stmt->execute([$currentDay, $studentBatchId]);
 $todayClasses = $stmt->fetchAll();
 
 // Categorize today's classes
@@ -146,12 +153,13 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND a.status IN ('published', 'open')
     AND a.deadline >= CURDATE()
     ORDER BY a.deadline ASC
     LIMIT 5
 ");
-$stmt->execute([$studentId, $studentId]);
+$stmt->execute([$studentId, $studentId, $studentBatchId]);
 $todayTasks = $stmt->fetchAll();
 
 // ============================================
@@ -168,10 +176,11 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND c.class_date BETWEEN ? AND ?
     GROUP BY c.status
 ");
-$stmt->execute([$studentId, $firstDay, $lastDay]);
+$stmt->execute([$studentId, $studentBatchId, $firstDay, $lastDay]);
 $monthlyStats = $stmt->fetchAll();
 
 $monthlyData = [
@@ -206,10 +215,11 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND a.status IN ('published', 'open')
     ORDER BY a.deadline ASC
 ");
-$stmt->execute([$studentId, $studentId, $studentId]);
+$stmt->execute([$studentId, $studentId, $studentId, $studentBatchId]);
 $allAssignments = $stmt->fetchAll();
 
 $assignments = [
@@ -262,8 +272,9 @@ $stmt = $db->prepare("
     LEFT JOIN fund_balances fb ON c.id = fb.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $fundData = $stmt->fetchAll();
 
 $totalBalance = 0;
@@ -293,10 +304,11 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     ORDER BY c.class_date DESC, c.start_time DESC
     LIMIT 3
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $recentClasses = $stmt->fetchAll();
 
 $stmt = $db->prepare("
@@ -312,11 +324,12 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND a.status IN ('published', 'open')
     ORDER BY a.deadline DESC
     LIMIT 3
 ");
-$stmt->execute([$studentId, $studentId]);
+$stmt->execute([$studentId, $studentId, $studentBatchId]);
 $recentAssignments = $stmt->fetchAll();
 
 $stmt = $db->prepare("
@@ -330,14 +343,19 @@ $stmt = $db->prepare("
     FROM announcements a
     LEFT JOIN classes c ON a.class_id = c.id
     WHERE a.status = 'published'
-    AND (a.target_audience = 'all' OR a.target_audience = 'students')
-    AND (a.class_id IS NULL OR a.class_id IN (
+    AND a.batch_id = ?
+    AND (
+        a.target_audience = 'all'
+        OR a.target_audience = 'students'
+        OR a.target_audience = 'specific_class'
+    )
+    AND (a.class_id IS NULL OR a.class_id = 0 OR a.class_id IN (
         SELECT class_id FROM class_enrollments WHERE student_id = ? AND status = 'active'
     ))
     ORDER BY a.created_at DESC
     LIMIT 3
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentBatchId, $studentId]);
 $recentAnnouncements = $stmt->fetchAll();
 
 // Combine activities
@@ -359,19 +377,20 @@ $stats = [
 
 // Get total enrolled classes
 $stmt = $db->prepare("
-    SELECT COUNT(*) FROM class_enrollments 
-    WHERE student_id = ? AND status = 'active'
+    SELECT COUNT(*) FROM class_enrollments ce
+    JOIN classes c ON c.id = ce.class_id
+    WHERE ce.student_id = ? AND ce.status = 'active' AND c.batch_id = ?
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $stats['total_classes'] = (int)$stmt->fetchColumn();
 
 // Get completed classes
 $stmt = $db->prepare("
     SELECT COUNT(*) FROM class_enrollments ce
     JOIN classes c ON ce.class_id = c.id
-    WHERE ce.student_id = ? AND c.status = 'completed'
+    WHERE ce.student_id = ? AND c.status = 'completed' AND c.batch_id = ?
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $stats['completed_classes'] = (int)$stmt->fetchColumn();
 
 // Get pending assignments
@@ -382,13 +401,14 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND a.status IN ('published', 'open')
     AND a.id NOT IN (
         SELECT assignment_id FROM assignment_submissions 
         WHERE student_id = ? AND assignment_id = a.id
     )
 ");
-$stmt->execute([$studentId, $studentId]);
+$stmt->execute([$studentId, $studentId, $studentBatchId]);
 $stats['pending_assignments'] = (int)$stmt->fetchColumn();
 
 // Get total assignments
@@ -399,9 +419,10 @@ $stmt = $db->prepare("
     JOIN class_enrollments ce ON c.id = ce.class_id
     WHERE ce.student_id = ?
     AND ce.status = 'active'
+    AND c.batch_id = ?
     AND a.status IN ('published', 'open')
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, $studentBatchId]);
 $stats['total_assignments'] = (int)$stmt->fetchColumn();
 
 } catch (Throwable $e) {

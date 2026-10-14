@@ -8,7 +8,7 @@ require_once __DIR__ . '/../config.php';
 require_once BASE_PATH . '/includes/auth-middleware.php';
 
 // Ensure admin access
-Auth::requireAdmin();
+Authorization::requireSuperAdmin();
 
 $pageTitle = 'Activity Logs';
 $pageCss = ['admin.css', 'activity-logs.css'];

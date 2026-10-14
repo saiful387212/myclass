@@ -32,13 +32,15 @@ $formData = [
 ];
 
 // Get classes for dropdown
-$stmt = $db->query("
-    SELECT c.id, c.class_title, c.class_code, crs.course_code 
+$classSql = "
+    SELECT c.id, c.class_title, c.class_code, crs.course_code
     FROM classes c
     JOIN courses crs ON c.course_id = crs.id
-    WHERE c.status = 'scheduled' OR c.status = 'completed'
-    ORDER BY c.class_date DESC
-");
+    WHERE c.status IN ('scheduled', 'completed')
+";
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('c');
+$stmt = $db->prepare($classSql . $batchSql . " ORDER BY c.class_date DESC");
+$stmt->execute($batchParams);
 $classes = $stmt->fetchAll();
 
 // Handle form submission
@@ -75,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle file upload
             if (!empty($_FILES['file']['name'])) {
                 $upload = new SecureFileUpload($_FILES['file'], UPLOAD_ASSIGNMENTS);
-                $upload->setAllowedExtensions(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip']);
+                $upload->setAllowedExtensions(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'jpg', 'jpeg', 'png', 'gif']);
                 $upload->setMaxSize(10485760);
                 
                 if ($upload->upload()) {

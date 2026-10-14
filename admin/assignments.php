@@ -72,15 +72,24 @@ if (!empty($filters['deadline_from']) || !empty($filters['deadline_to'])) {
 $assignments = $assignmentManager->getAll($filters, true);
 
 // Get classes for filter
-$stmt = $db->query("SELECT id, class_title FROM classes ORDER BY class_title");
+$classSql = "SELECT id, class_title FROM classes c WHERE 1=1";
+[$classBatchSql, $classBatchParams] = Authorization::adminBatchFilter('c');
+$stmt = $db->prepare($classSql . $classBatchSql . " ORDER BY class_title");
+$stmt->execute($classBatchParams);
 $classes = $stmt->fetchAll();
 
 // Status counts
 $statuses = ['draft', 'published', 'open', 'closed', 'archived'];
 $statusCounts = [];
 foreach ($statuses as $status) {
-    $stmt = $db->prepare("SELECT COUNT(*) FROM assignments WHERE status = ?");
-    $stmt->execute([$status]);
+    $countSql = "SELECT COUNT(*) FROM assignments a JOIN classes c ON c.id = a.class_id WHERE a.status = ?";
+    $countParams = [$status];
+    if (Authorization::isBatchAdmin()) {
+        $countSql .= " AND c.batch_id = ?";
+        $countParams[] = Authorization::getAdminBatchId();
+    }
+    $stmt = $db->prepare($countSql);
+    $stmt->execute($countParams);
     $statusCounts[$status] = $stmt->fetchColumn();
 }
 $totalAssignments = array_sum($statusCounts);

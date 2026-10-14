@@ -32,6 +32,15 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Poll not found']);
             exit;
         }
+
+        if ($userType === 'student' && (int)$poll['batch_id'] !== (int)(Authorization::getStudentBatchId() ?? 0)) {
+            echo json_encode(['success' => false, 'message' => 'Poll not found']);
+            exit;
+        }
+        if ($userType === 'admin' && Authorization::isBatchAdmin() && (int)$poll['batch_id'] !== Authorization::getAdminBatchId()) {
+            echo json_encode(['success' => false, 'message' => 'Poll not found']);
+            exit;
+        }
         
         // Get options
         $stmt = $db->prepare("SELECT * FROM poll_options WHERE poll_id = ? ORDER BY id");
@@ -84,8 +93,9 @@ switch ($action) {
         }
         
         // Check if poll exists and is active
-        $stmt = $db->prepare("SELECT * FROM polls WHERE id = ? AND status = 'active'");
-        $stmt->execute([$pollId]);
+        $studentBatchId = (int)(Authorization::getStudentBatchId() ?? 0);
+        $stmt = $db->prepare("SELECT * FROM polls WHERE id = ? AND batch_id = ? AND status = 'active'");
+        $stmt->execute([$pollId, $studentBatchId]);
         $poll = $stmt->fetch();
         
         if (!$poll) {
@@ -96,10 +106,11 @@ switch ($action) {
         // Check if poll is for this student's class
         if ($poll['class_id']) {
             $stmt = $db->prepare("
-                SELECT id FROM class_enrollments 
-                WHERE student_id = ? AND class_id = ? AND status = 'active'
+                SELECT ce.id FROM class_enrollments ce
+                JOIN classes c ON c.id = ce.class_id
+                WHERE ce.student_id = ? AND ce.class_id = ? AND ce.status = 'active' AND c.batch_id = ?
             ");
-            $stmt->execute([$userId, $poll['class_id']]);
+            $stmt->execute([$userId, $poll['class_id'], $studentBatchId]);
             if (!$stmt->fetch()) {
                 echo json_encode(['success' => false, 'message' => 'You are not eligible to vote in this poll']);
                 exit;

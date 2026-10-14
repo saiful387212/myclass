@@ -30,8 +30,9 @@ if ($action && $id) {
     
     if ($action === 'approve') {
         // Get request details
-        $stmt = $db->prepare("SELECT * FROM registration_requests WHERE id = ? AND status = 'pending'");
-        $stmt->execute([$id]);
+        [$batchSql, $batchParams] = Authorization::adminBatchFilter();
+        $stmt = $db->prepare("SELECT * FROM registration_requests WHERE id = ? AND status = 'pending'" . $batchSql);
+        $stmt->execute(array_merge([$id], $batchParams));
         $request = $stmt->fetch();
         
         if ($request) {
@@ -41,7 +42,10 @@ if ($action && $id) {
             $stmt->execute([$classRoll]);
             $existingStudent = $stmt->fetch();
             if ($existingStudent) {
-                // Reconcile duplicate requests instead of attempting a second student insert.
+                if ($existingStudent['status'] === 'pending') {
+                    $stmt = $db->prepare("UPDATE students SET batch = ?, batch_id = ?, status = 'active', approved_at = NOW() WHERE id = ?");
+                    $stmt->execute([$request['batch'], $request['batch_id'], $existingStudent['id']]);
+                }
                 $stmt = $db->prepare("UPDATE registration_requests
                     SET status = 'approved', reviewed_by = ?, review_notes = ?, reviewed_at = NOW()
                     WHERE id = ? AND status = 'pending'");
@@ -65,8 +69,8 @@ if ($action && $id) {
                 // Create student account
                 $stmt = $db->prepare("
                     INSERT INTO students 
-                    (full_name, class_roll, email, phone, department, session, batch, pin_hash, status, approved_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+                    (full_name, class_roll, email, phone, department, session, batch, batch_id, pin_hash, status, approved_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
                 ");
                 $stmt->execute([
                     $request['full_name'],
@@ -76,6 +80,7 @@ if ($action && $id) {
                     $request['department'],
                     $request['session'],
                     $request['batch'],
+                    $request['batch_id'],
                     $pinHash
                 ]);
                 
@@ -138,12 +143,13 @@ if ($action && $id) {
         
     } elseif ($action === 'reject') {
         $notes = trim($_POST['notes'] ?? '');
+        [$batchSql, $batchParams] = Authorization::adminBatchFilter();
         $stmt = $db->prepare("
             UPDATE registration_requests 
             SET status = 'rejected', reviewed_by = ?, review_notes = ?, reviewed_at = NOW() 
-            WHERE id = ? AND status = 'pending'
-        ");
-        $stmt->execute([$currentUser['id'], $notes, $id]);
+            WHERE id = ? AND status = 'pending'" . $batchSql
+        );
+        $stmt->execute(array_merge([$currentUser['id'], $notes, $id], $batchParams));
         
         if ($stmt->rowCount() > 0) {
             Session::setFlash('success', 'Registration request rejected.');
@@ -153,8 +159,9 @@ if ($action && $id) {
         redirect(url('admin/registrations.php'));
         
     } elseif ($action === 'delete') {
-        $stmt = $db->prepare("DELETE FROM registration_requests WHERE id = ? AND status IN ('rejected', 'cancelled')");
-        $stmt->execute([$id]);
+        [$batchSql, $batchParams] = Authorization::adminBatchFilter();
+        $stmt = $db->prepare("DELETE FROM registration_requests WHERE id = ? AND status IN ('rejected', 'cancelled')" . $batchSql);
+        $stmt->execute(array_merge([$id], $batchParams));
         if ($stmt->rowCount() > 0) {
             Session::setFlash('success', 'Registration request deleted.');
         } else {
@@ -177,6 +184,11 @@ $query = "
 ";
 $params = [];
 
+// Batch scope
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('r');
+$query .= $batchSql;
+$params = array_merge($params, $batchParams);
+
 if ($statusFilter !== 'all') {
     $query .= " AND r.status = ?";
     $params[] = $statusFilter;
@@ -196,13 +208,14 @@ $stmt = $db->prepare($query);
 $stmt->execute($params);
 $requests = $stmt->fetchAll();
 
-// Get counts
+// Get counts (batch-scoped)
 $counts = [];
 $statuses = ['pending', 'approved', 'rejected', 'cancelled'];
 foreach ($statuses as $status) {
-    $stmt = $db->prepare("SELECT COUNT(*) FROM registration_requests WHERE status = ?");
-    $stmt->execute([$status]);
-    $counts[$status] = $stmt->fetchColumn();
+    $cSql = "SELECT COUNT(*) FROM registration_requests r WHERE r.status = ?" . $batchSql;
+    $cStmt = $db->prepare($cSql);
+    $cStmt->execute(array_merge([$status], $batchParams));
+    $counts[$status] = $cStmt->fetchColumn();
 }
 $counts['all'] = array_sum($counts);
 

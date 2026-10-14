@@ -20,17 +20,18 @@ if (!$id) {
 }
 
 $db = Database::getInstance();
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('s');
 
 // Get student details
 $stmt = $db->prepare("
     SELECT s.*,
-           (SELECT COUNT(*) FROM class_enrollments WHERE student_id = s.id AND status = 'active') as enrolled_classes,
-           (SELECT COUNT(*) FROM class_enrollments WHERE student_id = s.id AND status = 'completed') as completed_classes,
-           (SELECT COUNT(*) FROM class_enrollments WHERE student_id = s.id AND status = 'dropped') as dropped_classes
+           (SELECT COUNT(*) FROM class_enrollments ce JOIN classes c ON c.id = ce.class_id WHERE ce.student_id = s.id AND ce.status = 'active' AND c.batch_id = s.batch_id) as enrolled_classes,
+           (SELECT COUNT(*) FROM class_enrollments ce JOIN classes c ON c.id = ce.class_id WHERE ce.student_id = s.id AND ce.status = 'completed' AND c.batch_id = s.batch_id) as completed_classes,
+           (SELECT COUNT(*) FROM class_enrollments ce JOIN classes c ON c.id = ce.class_id WHERE ce.student_id = s.id AND ce.status = 'dropped' AND c.batch_id = s.batch_id) as dropped_classes
     FROM students s
-    WHERE s.id = ?
-");
-$stmt->execute([$id]);
+    WHERE s.id = ?" . $batchSql
+);
+$stmt->execute(array_merge([$id], $batchParams));
 $student = $stmt->fetch();
 
 if (!$student) {
@@ -45,10 +46,10 @@ $stmt = $db->prepare("
     FROM class_enrollments ce
     JOIN classes c ON ce.class_id = c.id
     JOIN courses crs ON c.course_id = crs.id
-    WHERE ce.student_id = ?
+    WHERE ce.student_id = ? AND c.batch_id = ?
     ORDER BY ce.enrollment_date DESC
 ");
-$stmt->execute([$id]);
+$stmt->execute([$id, $student['batch_id']]);
 $enrollments = $stmt->fetchAll();
 
 // Get recent activity

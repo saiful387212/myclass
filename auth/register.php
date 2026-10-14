@@ -36,6 +36,10 @@ if ($step === 'register') {
         exit;
     }
 
+    // Get available batches for dropdown
+    $stmt = $db->query("SELECT id, name, label FROM batches WHERE is_active = 1 ORDER BY FIELD(name, 'First year', 'Second year', 'Third Year', 'Fourth year'), name");
+    $availableBatches = $stmt->fetchAll();
+
     $error = null;
     $success = null;
     $formData = [
@@ -47,7 +51,8 @@ if ($step === 'register') {
         'pin_confirm' => '',
         'department' => 'Geography and Environment',
         'session' => date('Y') . '-' . (date('Y') + 1),
-        'batch' => date('Y')
+        'batch' => date('Y'),
+        'batch_id' => ''
     ];
 
     // Handle registration form submission
@@ -65,7 +70,16 @@ if ($step === 'register') {
             $pinConfirm = $_POST['pin_confirm'] ?? '';
             $department = trim($_POST['department'] ?? 'Geography and Environment');
             $session = trim($_POST['session'] ?? '');
-            $batch = trim($_POST['batch'] ?? '');
+            $batchId = (int)($_POST['batch_id'] ?? 0);
+            
+            // Resolve batch name from batch_id
+            $batchName = '';
+            if ($batchId) {
+                $bStmt = $db->prepare("SELECT name FROM batches WHERE id = ? AND is_active = 1");
+                $bStmt->execute([$batchId]);
+                $batchRow = $bStmt->fetch();
+                $batchName = $batchRow ? $batchRow['name'] : '';
+            }
             
             // Store for repopulation
             $formData = [
@@ -77,7 +91,8 @@ if ($step === 'register') {
                 'pin_confirm' => $pinConfirm,
                 'department' => $department,
                 'session' => $session,
-                'batch' => $batch
+                'batch' => $batchName,
+                'batch_id' => $batchId
             ];
             
             // Validate
@@ -91,11 +106,13 @@ if ($step === 'register') {
                 'pin_confirm' => 'required|match:pin',
                 'department' => 'optional|max:100',
                 'session' => 'optional|max:20',
-                'batch' => 'optional|max:20'
+                'batch_id' => 'optional'
             ]);
             
             if (!$validator->validate()) {
                 $error = $validator->getFirstError();
+            } elseif (!$batchId || empty($batchName)) {
+                $error = 'Please select a valid batch.';
             } elseif (!preg_match('/^[0-9]+$/', $pin)) {
                 $error = 'PIN must contain only numbers.';
             } elseif (strlen($pin) < 6) {
@@ -132,18 +149,18 @@ if ($step === 'register') {
                         // Create registration request
                         $stmt = $db->prepare("
                             INSERT INTO registration_requests 
-                            (full_name, class_roll, email, phone, department, session, batch, status, requested_at) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                            (full_name, class_roll, email, phone, department, session, batch, batch_id, status, requested_at) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
                         ");
-                        $stmt->execute([$fullName, $classRoll, $email, $phone, $department, $session, $batch]);
+                        $stmt->execute([$fullName, $classRoll, $email, $phone, $department, $session, $batchName, $batchId]);
                         
                         $requestId = $db->lastInsertId();
                         
                         // Create student account with pending status and PIN
                         $stmt = $db->prepare("
                             INSERT INTO students 
-                            (full_name, class_roll, email, phone, pin_hash, department, session, batch, status, created_at) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                            (full_name, class_roll, email, phone, pin_hash, department, session, batch, batch_id, status, created_at) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
                         ");
                         $stmt->execute([
                             $fullName, 
@@ -153,16 +170,22 @@ if ($step === 'register') {
                             $pinHash, 
                             $department, 
                             $session, 
-                            $batch
+                            $batchName,
+                            $batchId
                         ]);
                         
                         $studentId = $db->lastInsertId();
                         
-                        // Send notification to admin
-                        $stmt = $db->query("SELECT id, full_name FROM admins WHERE status = 'active' LIMIT 1");
-                        $admin = $stmt->fetch();
+                        // Notify the batch-specific admin (or super admin if no batch admin exists)
+                        $adminStmt = $db->prepare("
+                            SELECT id, full_name FROM admins 
+                            WHERE status = 'active' AND (batch_id = ? OR batch_id IS NULL)
+                            ORDER BY batch_id DESC LIMIT 1
+                        ");
+                        $adminStmt->execute([$batchId]);
+                        $admin = $adminStmt->fetch();
                         if ($admin) {
-                            $message = "New registration request from $fullName (Roll: $classRoll)";
+                            $message = "New registration request from $fullName (Roll: $classRoll, Batch: $batchName)";
                             sendNotification($admin['id'], 'admin', 'New Registration Request', $message, 'info', url('admin/registrations.php'));
                         }
                         
@@ -339,13 +362,19 @@ include_once BASE_PATH . '/includes/header.php';
                         </div>
                         
                         <div class="form-group half">
-                            <label for="batch">Batch</label>
+                            <label for="batch_id">Batch <span class="required">*</span></label>
                             <div class="input-group">
                                 <span class="input-icon"><i class="fas fa-calendar-alt"></i></span>
-                                <input type="text" id="batch" name="batch" 
-                                       value="<?php echo htmlspecialchars($formData['batch']); ?>" 
-                                       placeholder="e.g., 2024">
+                                <select id="batch_id" name="batch_id" required>
+                                    <option value="">-- Select Batch --</option>
+                                    <?php foreach ($availableBatches as $b): ?>
+                                        <option value="<?php echo $b['id']; ?>" <?php echo (int)$formData['batch_id'] === (int)$b['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($b['label'] ?: $b['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
+                            <span class="form-help">Select your class batch year.</span>
                         </div>
                     </div>
                     

@@ -450,7 +450,7 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
                                         <i class="fas fa-external-link-alt"></i> Open Link
                                     </a>
                                 <?php else: ?>
-                                    <a href="<?php echo url('api/download-note.php?file=' . urlencode($material['file_path']) . '&id=' . $material['id']); ?>" 
+                                    <a href="<?php echo uploadUrl($material['file_path']); ?>"
                                        class="btn btn-sm btn-primary" target="_blank">
                                         <i class="fas fa-download"></i> Download
                                     </a>

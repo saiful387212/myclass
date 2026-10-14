@@ -26,6 +26,14 @@ if ($action && $id) {
         Session::setFlash('error', 'Invalid security token');
         redirect(url('admin/polls.php'));
     }
+
+    [$actionBatchSql, $actionBatchParams] = Authorization::adminBatchFilter();
+    $checkStmt = $db->prepare("SELECT id FROM polls WHERE id = ?" . $actionBatchSql);
+    $checkStmt->execute(array_merge([$id], $actionBatchParams));
+    if (!$checkStmt->fetchColumn()) {
+        Session::setFlash('error', 'Poll not found.');
+        redirect(url('admin/polls.php'));
+    }
     
     if ($action === 'delete') {
         // Delete poll and its options
@@ -34,8 +42,8 @@ if ($action && $id) {
             $stmt = $db->prepare("DELETE FROM poll_options WHERE poll_id = ?");
             $stmt->execute([$id]);
             
-            $stmt = $db->prepare("DELETE FROM polls WHERE id = ?");
-            $stmt->execute([$id]);
+            $stmt = $db->prepare("DELETE FROM polls WHERE id = ?" . $actionBatchSql);
+            $stmt->execute(array_merge([$id], $actionBatchParams));
             
             $db->commit();
             Session::setFlash('success', 'Poll deleted successfully!');
@@ -46,8 +54,8 @@ if ($action && $id) {
         }
         redirect(url('admin/polls.php'));
     } elseif ($action === 'toggle_status') {
-        $stmt = $db->prepare("UPDATE polls SET status = CASE WHEN status = 'active' THEN 'closed' ELSE 'active' END WHERE id = ?");
-        $result = $stmt->execute([$id]);
+        $stmt = $db->prepare("UPDATE polls SET status = CASE WHEN status = 'active' THEN 'closed' ELSE 'active' END WHERE id = ?" . $actionBatchSql);
+        $result = $stmt->execute(array_merge([$id], $actionBatchParams));
         if ($result) {
             Session::setFlash('success', 'Poll status updated!');
             logActivity('poll_status_changed', "Changed poll ID: {$id} status");
@@ -98,6 +106,11 @@ $sql = "
 ";
 $params = [];
 
+// Batch scope
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('p');
+$sql .= $batchSql;
+$params = array_merge($params, $batchParams);
+
 if (!empty($filters['search'])) {
     $sql .= " AND (p.title LIKE ? OR p.description LIKE ?)";
     $search = '%' . $filters['search'] . '%';
@@ -116,10 +129,12 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $polls = $stmt->fetchAll();
 
-// Get status counts
-$stmt = $db->query("SELECT status, COUNT(*) as count FROM polls GROUP BY status");
+// Get status counts (batch-scoped)
+$countSql = "SELECT status, COUNT(*) as count FROM polls WHERE 1=1" . $batchSql . " GROUP BY status";
+$stmtC = $db->prepare($countSql);
+$stmtC->execute($batchParams);
 $statusCounts = [];
-while ($row = $stmt->fetch()) {
+while ($row = $stmtC->fetch()) {
     $statusCounts[$row['status']] = $row['count'];
 }
 $totalPolls = array_sum($statusCounts);

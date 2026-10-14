@@ -13,6 +13,7 @@ Auth::requireStudent();
 $action = $_GET['action'] ?? '';
 $db = Database::getInstance();
 $studentId = Session::get('user_id');
+$studentBatchId = (int)(Authorization::getStudentBatchId() ?? 0);
 
 header('Content-Type: application/json');
 
@@ -29,10 +30,11 @@ switch ($action) {
             JOIN class_enrollments ce ON c.id = ce.class_id
             WHERE ce.student_id = ? 
             AND c.class_date = ?
+            AND c.batch_id = ?
             AND ce.status = 'active'
             ORDER BY c.start_time ASC
         ");
-        $stmt->execute([$studentId, $today]);
+        $stmt->execute([$studentId, $today, $studentBatchId]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
         break;
         
@@ -48,10 +50,11 @@ switch ($action) {
             JOIN class_enrollments ce ON c.id = ce.class_id
             WHERE ce.student_id = ?
             AND ce.status = 'active'
+            AND c.batch_id = ?
             AND a.status IN ('published', 'open')
             ORDER BY a.deadline ASC
         ");
-        $stmt->execute([$studentId, $studentId]);
+        $stmt->execute([$studentId, $studentId, $studentBatchId]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
         break;
         
@@ -69,8 +72,9 @@ switch ($action) {
             LEFT JOIN fund_balances fb ON c.id = fb.class_id
             WHERE ce.student_id = ?
             AND ce.status = 'active'
+            AND c.batch_id = ?
         ");
-        $stmt->execute([$studentId]);
+        $stmt->execute([$studentId, $studentBatchId]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
         break;
         

@@ -15,6 +15,9 @@ $pageJs = ['add-announcement.js'];
 $isAdmin = true;
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
+$stmt = $db->query("SELECT id, name, label FROM batches WHERE is_active = 1 ORDER BY FIELD(name, 'First year', 'Second year', 'Third Year', 'Fourth year'), name");
+$batches = $stmt->fetchAll();
 
 $error = null;
 $formData = [
@@ -30,7 +33,14 @@ $formData = [
 ];
 
 // Get classes for dropdown
-$stmt = $db->query("SELECT id, class_title, class_code FROM classes ORDER BY class_title");
+$classSql = "SELECT id, class_title, class_code FROM classes";
+$classParams = [];
+if ($adminBatchId !== null) {
+    $classSql .= " WHERE batch_id = ?";
+    $classParams[] = $adminBatchId;
+}
+$stmt = $db->prepare($classSql . " ORDER BY class_title");
+$stmt->execute($classParams);
 $classes = $stmt->fetchAll();
 
 // Get admins for created_by dropdown
@@ -48,9 +58,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $priority = $_POST['priority'] ?? 'medium';
         $targetAudience = $_POST['target_audience'] ?? 'all';
         $classId = !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null;
+        $batchId = $adminBatchId ?? (int)($_POST['batch_id'] ?? 0);
         $startDate = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
         $endDate = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
         $status = $_POST['status'] ?? 'draft';
+
+        $batchCheck = $db->prepare("SELECT id FROM batches WHERE id = ? AND is_active = 1");
+        $batchCheck->execute([$batchId]);
+        if (!$batchId || !$batchCheck->fetchColumn()) {
+            $error = 'Please select a valid batch.';
+        } elseif ($classId) {
+            $classCheck = $db->prepare("SELECT id FROM classes WHERE id = ? AND batch_id = ?");
+            $classCheck->execute([$classId, $batchId]);
+            if (!$classCheck->fetchColumn()) {
+                $error = 'Select a class from the selected batch.';
+            }
+        }
         
         // Validate
         if (empty($title)) {
@@ -66,13 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!$error) {
                 $stmt = $db->prepare("
                     INSERT INTO announcements (
-                        title, content, announcement_type, priority,
+                        batch_id, title, content, announcement_type, priority,
                         target_audience, class_id, start_date, end_date,
                         status, created_by
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 
                 $result = $stmt->execute([
+                    $batchId,
                     $title,
                     $content,
                     $announcementType,
@@ -90,10 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     Session::setFlash('success', 'Announcement created successfully!');
                     logActivity('announcement_created', "Created announcement: {$title}");
                     
-                    // If published, notify students
+                    // If published, notify students (batch-scoped)
                     if ($status === 'published') {
-                        // Send notification to all students (or class-specific)
-                        $userType = 'student';
+                        $batchWhere = " AND s.batch_id = " . (int)$batchId;
                         $stmt2 = $db->prepare("
                             INSERT INTO notifications (user_type, user_id, title, message, notification_type, link)
                             SELECT 
@@ -104,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 ?,
                                 ?
                             FROM students s
-                            WHERE s.status = 'active'
+                            WHERE s.status = 'active'{$batchWhere}
                             " . ($classId ? "AND s.id IN (SELECT student_id FROM class_enrollments WHERE class_id = ? AND status = 'active')" : "")
                         );
                         $params = [
@@ -157,6 +180,18 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
             <form method="POST" action="" id="announcementForm">
                 <?php echo Security::csrfField(); ?>
                 <input type="hidden" name="action" value="create_announcement">
+
+                <?php if ($adminBatchId === null): ?>
+                    <div class="form-group">
+                        <label for="batch_id">Batch <span class="required">*</span></label>
+                        <select id="batch_id" name="batch_id" class="form-control" required>
+                            <option value="">Select Batch</option>
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?php echo (int)$batch['id']; ?>"><?php echo htmlspecialchars($batch['label'] ?: 'Batch ' . $batch['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
                 
                 <div class="form-group">
                     <label for="title">Title <span class="required">*</span></label>

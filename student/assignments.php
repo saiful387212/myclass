@@ -33,10 +33,10 @@ $stmt = $db->prepare("
     SELECT DISTINCT c.id, c.class_title 
     FROM classes c
     JOIN class_enrollments ce ON c.id = ce.class_id
-    WHERE ce.student_id = ? AND ce.status = 'active'
+    WHERE ce.student_id = ? AND ce.status = 'active' AND c.batch_id = ?
     ORDER BY c.class_title
 ");
-$stmt->execute([$studentId]);
+$stmt->execute([$studentId, Authorization::getStudentBatchId() ?? 0]);
 $classes = $stmt->fetchAll();
 
 include_once BASE_PATH . '/includes/header.php';

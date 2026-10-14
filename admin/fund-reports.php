@@ -17,6 +17,7 @@ $isAdmin = true;
 $db = Database::getInstance();
 
 $eventId = $_GET['event_id'] ?? 0;
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('e');
 
 // Get event details
 $stmt = $db->prepare("
@@ -32,9 +33,9 @@ $stmt = $db->prepare("
     FROM fund_events e
     LEFT JOIN classes c ON e.class_id = c.id
     LEFT JOIN admins a ON e.created_by = a.id
-    WHERE e.id = ?
-");
-$stmt->execute([$eventId]);
+    WHERE e.id = ?" . $batchSql
+);
+$stmt->execute(array_merge([$eventId], $batchParams));
 $event = $stmt->fetch();
 
 if (!$event) {
@@ -48,7 +49,7 @@ $currentBalance = $event['total_income'] - $event['total_expenditure'] - $event[
 $stmt = $db->prepare("
     SELECT 
         t.*,
-        CASE WHEN t.transaction_type = 'refund' THEN t.payer_receiver ELSE NULL END AS student_name,
+        CASE WHEN t.transaction_type IN ('income', 'refund') THEN t.payer_receiver ELSE NULL END AS student_name,
         a.full_name as created_by_name
     FROM fund_transactions t
     LEFT JOIN admins a ON t.created_by = a.id

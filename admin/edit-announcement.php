@@ -21,10 +21,12 @@ if (!$id) {
 }
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
+[$batchSql, $batchParams] = Authorization::adminBatchFilter();
 
 // Get announcement
-$stmt = $db->prepare("SELECT * FROM announcements WHERE id = ?");
-$stmt->execute([$id]);
+$stmt = $db->prepare("SELECT * FROM announcements WHERE id = ?" . $batchSql);
+$stmt->execute(array_merge([$id], $batchParams));
 $announcement = $stmt->fetch();
 
 if (!$announcement) {
@@ -36,7 +38,14 @@ $error = null;
 $formData = $announcement;
 
 // Get classes for dropdown
-$stmt = $db->query("SELECT id, class_title, class_code FROM classes ORDER BY class_title");
+$classSql = "SELECT id, class_title, class_code FROM classes";
+$classParams = [];
+if ($adminBatchId !== null) {
+    $classSql .= " WHERE batch_id = ?";
+    $classParams[] = $adminBatchId;
+}
+$stmt = $db->prepare($classSql . " ORDER BY class_title");
+$stmt->execute($classParams);
 $classes = $stmt->fetchAll();
 
 // Handle form submission
@@ -53,9 +62,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $startDate = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
         $endDate = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
         $status = $_POST['status'] ?? 'draft';
+
+        if ($classId) {
+            $classCheck = $db->prepare("SELECT id FROM classes WHERE id = ? AND batch_id = ?");
+            $classCheck->execute([$classId, $announcement['batch_id']]);
+            if (!$classCheck->fetchColumn()) {
+                $error = 'Select a class from the announcement batch.';
+            }
+        }
         
         // Validate
-        if (empty($title)) {
+        if ($error) {
+            // Keep batch validation errors intact.
+        } elseif (empty($title)) {
             $error = 'Title is required.';
         } elseif (empty($content)) {
             $error = 'Content is required.';
@@ -71,10 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     SET title = ?, content = ?, announcement_type = ?, priority = ?,
                         target_audience = ?, class_id = ?, start_date = ?, end_date = ?,
                         status = ?, updated_at = NOW()
-                    WHERE id = ?
-                ");
+                    WHERE id = ?" . $batchSql
+                );
                 
-                $result = $stmt->execute([
+                $result = $stmt->execute(array_merge([
                     $title,
                     $content,
                     $announcementType,
@@ -85,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $endDate,
                     $status,
                     $id
-                ]);
+                ], $batchParams));
                 
                 if ($result) {
                     Session::setFlash('success', 'Announcement updated successfully!');
@@ -102,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 ?,
                                 ?,
                                 ?
-                            FROM students s                            WHERE s.status = 'active'
+                            FROM students s WHERE s.status = 'active' AND s.batch_id = " . (int)$announcement['batch_id'] . "
                             " . ($classId ? "AND s.id IN (SELECT student_id FROM class_enrollments WHERE class_id = ? AND status = 'active')" : "")
                         );
                         $params = [

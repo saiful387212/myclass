@@ -15,6 +15,9 @@ $pageJs = ['add-poll.js'];
 $isAdmin = true;
 
 $db = Database::getInstance();
+$adminBatchId = Authorization::getAdminBatchId();
+$stmt = $db->query("SELECT id, name, label FROM batches WHERE is_active = 1 ORDER BY FIELD(name, 'First year', 'Second year', 'Third Year', 'Fourth year'), name");
+$batches = $stmt->fetchAll();
 
 $error = null;
 $success = null;
@@ -32,9 +35,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $allow_multiple = isset($_POST['allow_multiple']) ? 1 : 0;
         $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
         $class_id = !empty($_POST['class_id']) ? (int)$_POST['class_id'] : null;
+        $batchId = $adminBatchId ?? (int)($_POST['batch_id'] ?? 0);
+        $batchCheck = $db->prepare("SELECT id FROM batches WHERE id = ? AND is_active = 1");
+        $batchCheck->execute([$batchId]);
+        if (!$batchId || !$batchCheck->fetchColumn()) {
+            $error = 'Please select a valid batch.';
+        } elseif ($class_id) {
+            $classCheck = $db->prepare("SELECT id FROM classes WHERE id = ? AND batch_id = ?");
+            $classCheck->execute([$class_id, $batchId]);
+            if (!$classCheck->fetchColumn()) {
+                $error = 'Select a class from the selected batch.';
+            }
+        }
         
         // Validate
-        if (empty($title)) {
+        if ($error) {
+            // Keep validation errors from batch checks intact.
+        } elseif (empty($title)) {
             $error = 'Poll title is required.';
         } elseif (count($options) < 2) {
             $error = 'Please add at least 2 options.';
@@ -57,11 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     
                     $stmt = $db->prepare("
                         INSERT INTO polls (
-                            title, description, status, is_anonymous, 
+                            batch_id, title, description, status, is_anonymous,
                             allow_multiple, end_date, class_id, created_by
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
                     $stmt->execute([
+                        $batchId,
                         $title, 
                         $description, 
                         $status, 
@@ -100,7 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Get classes for dropdown
-$stmt = $db->query("SELECT id, class_title, class_code FROM classes WHERE status = 'scheduled' ORDER BY class_title");
+$classSql = "SELECT id, class_title, class_code FROM classes WHERE status = 'scheduled'";
+$classParams = [];
+if ($adminBatchId !== null) {
+    $classSql .= " AND batch_id = ?";
+    $classParams[] = $adminBatchId;
+}
+$stmt = $db->prepare($classSql . " ORDER BY class_title");
+$stmt->execute($classParams);
 $classes = $stmt->fetchAll();
 
 include_once BASE_PATH . '/includes/header.php';
@@ -139,6 +164,18 @@ include_once BASE_PATH . '/includes/sidebar-admin.php';
             <form method="POST" action="" id="pollForm">
                 <?php echo Security::csrfField(); ?>
                 <input type="hidden" name="action" value="create_poll">
+
+                <?php if ($adminBatchId === null): ?>
+                    <div class="form-group">
+                        <label for="batch_id">Batch <span class="required">*</span></label>
+                        <select id="batch_id" name="batch_id" class="form-control" required>
+                            <option value="">Select Batch</option>
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?php echo (int)$batch['id']; ?>"><?php echo htmlspecialchars($batch['label'] ?: 'Batch ' . $batch['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
                 
                 <div class="form-group">
                     <label for="title">Poll Title <span class="required">*</span></label>

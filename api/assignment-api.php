@@ -30,9 +30,15 @@ switch ($action) {
                 s.email
             FROM assignment_submissions sub
             JOIN students s ON sub.student_id = s.id
-            WHERE sub.id = ?
+            JOIN assignments a ON a.id = sub.assignment_id
+            JOIN classes c ON c.id = a.class_id
+            WHERE sub.id = ?" . (Authorization::isBatchAdmin() ? " AND c.batch_id = ?" : "") . "
         ");
-        $stmt->execute([$id]);
+        $params = [$id];
+        if (Authorization::isBatchAdmin()) {
+            $params[] = Authorization::getAdminBatchId();
+        }
+        $stmt->execute($params);
         $submission = $stmt->fetch();
         
         if ($submission) {
@@ -69,12 +75,19 @@ switch ($action) {
             exit;
         }
         
+        $gradeBatchSql = Authorization::isBatchAdmin()
+            ? " AND assignment_id IN (SELECT a.id FROM assignments a JOIN classes c ON c.id = a.class_id WHERE c.batch_id = ?)"
+            : '';
+        $gradeParams = [$score, $feedback, Session::get('user_id'), $submissionId];
+        if (Authorization::isBatchAdmin()) {
+            $gradeParams[] = Authorization::getAdminBatchId();
+        }
         $stmt = $db->prepare("
             UPDATE assignment_submissions 
             SET score = ?, feedback = ?, status = 'graded', graded_at = NOW(), graded_by = ?
-            WHERE id = ?
-        ");
-        $result = $stmt->execute([$score, $feedback, Session::get('user_id'), $submissionId]);
+            WHERE id = ?" . $gradeBatchSql
+        );
+        $result = $stmt->execute($gradeParams);
         
         if ($result) {
             logActivity('assignment_graded', "Graded submission ID: {$submissionId}");

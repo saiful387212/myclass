@@ -15,6 +15,17 @@ class ClassManager {
      */
     public function create($data) {
         try {
+            $adminBatchId = Authorization::getAdminBatchId();
+            $batchId = $adminBatchId ?? (int)($data['batch_id'] ?? 0);
+            if (!$batchId) {
+                return ['success' => false, 'message' => 'Please select a batch for this class'];
+            }
+            $batchStmt = $this->db->prepare("SELECT id FROM batches WHERE id = ? AND is_active = 1");
+            $batchStmt->execute([$batchId]);
+            if (!$batchStmt->fetchColumn()) {
+                return ['success' => false, 'message' => 'Selected batch is not active'];
+            }
+
             // Validate required fields
             $required = ['course_id', 'class_code', 'class_title', 'instructor', 'class_date', 'start_time', 'end_time'];
             foreach ($required as $field) {
@@ -33,13 +44,14 @@ class ClassManager {
             // Insert class
             $stmt = $this->db->prepare("
                 INSERT INTO classes (
-                    course_id, class_code, class_title, description, instructor,
+                    batch_id, course_id, class_code, class_title, description, instructor,
                     class_date, start_time, end_time, room, venue, semester,
                     academic_year, topic, class_task, additional_info, status, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $result = $stmt->execute([
+                $batchId,
                 $data['course_id'],
                 $data['class_code'],
                 $data['class_title'],
@@ -101,9 +113,10 @@ class ClassManager {
             }
             
             $params[] = $id;
-            $sql = "UPDATE classes SET " . implode(', ', $fields) . " WHERE id = ?";
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter();
+            $sql = "UPDATE classes SET " . implode(', ', $fields) . " WHERE id = ?" . $batchSql;
             $stmt = $this->db->prepare($sql);
-            $result = $stmt->execute($params);
+            $result = $stmt->execute(array_merge($params, $batchParams));
             
             if ($result) {
                 logActivity('class_updated', "Updated class ID: {$id}");
@@ -130,8 +143,9 @@ class ClassManager {
                 return ['success' => false, 'message' => 'Cannot delete class with enrolled students'];
             }
             
-            $stmt = $this->db->prepare("DELETE FROM classes WHERE id = ?");
-            $result = $stmt->execute([$id]);
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter();
+            $stmt = $this->db->prepare("DELETE FROM classes WHERE id = ?" . $batchSql);
+            $result = $stmt->execute(array_merge([$id], $batchParams));
             
             if ($result) {
                 logActivity('class_deleted', "Deleted class ID: {$id}");
@@ -154,8 +168,9 @@ class ClassManager {
                 return ['success' => false, 'message' => 'Invalid status'];
             }
             
-            $stmt = $this->db->prepare("UPDATE classes SET status = ? WHERE id = ?");
-            $result = $stmt->execute([$status, $id]);
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter();
+            $stmt = $this->db->prepare("UPDATE classes SET status = ? WHERE id = ?" . $batchSql);
+            $result = $stmt->execute(array_merge([$status, $id], $batchParams));
             
             if ($result) {
                 logActivity('class_status_changed', "Changed class ID: {$id} to {$status}");
@@ -178,13 +193,18 @@ class ClassManager {
             FROM classes c
             JOIN courses crs ON c.course_id = crs.id
             WHERE c.id = ?
+            " . (Authorization::isBatchAdmin() ? "AND c.batch_id = ?" : "") . "
         ");
-        $stmt->execute([$id]);
+        $params = [$id];
+        if (Authorization::isBatchAdmin()) {
+            $params[] = Authorization::getAdminBatchId();
+        }
+        $stmt->execute($params);
         return $stmt->fetch();
     }
     
     /**
-     * Get all classes with filters
+     * Get all classes with filters (batch-scoped for batch admins)
      */
     public function getAll($filters = []) {
         $sql = "
@@ -195,6 +215,13 @@ class ClassManager {
             WHERE 1=1
         ";
         $params = [];
+
+        // Batch scope for admin
+        if (Auth::checkRole('admin')) {
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter('c');
+            $sql .= $batchSql;
+            $params = array_merge($params, $batchParams);
+        }
         
         // Apply filters
         if (!empty($filters['search'])) {
@@ -238,9 +265,11 @@ class ClassManager {
     }
     
     /**
-     * Get student's classes
+     * Get student's classes (scoped to their batch)
      */
     public function getStudentClasses($studentId, $filters = []) {
+        $studentBatchId = Authorization::getStudentBatchId() ?? 0;
+
         $sql = "
             SELECT c.*, crs.course_code, crs.course_title,
                    ce.status as enrollment_status,
@@ -252,7 +281,10 @@ class ClassManager {
             WHERE ce.student_id = ? AND ce.status = 'active'
         ";
         $params = [$studentId];
-        
+
+        $sql .= " AND c.batch_id = ?";
+        $params[] = $studentBatchId;
+
         if (!empty($filters['search'])) {
             $sql .= " AND (c.class_title LIKE ? OR c.class_code LIKE ? OR c.instructor LIKE ?)";
             $search = '%' . $filters['search'] . '%';
@@ -327,20 +359,21 @@ class ClassManager {
     public function completeClass($id, $data) {
         try {
             // Update class status
+            [$batchSql, $batchParams] = Authorization::adminBatchFilter();
             $stmt = $this->db->prepare("
                 UPDATE classes 
                 SET status = 'completed',
                     topic = COALESCE(?, topic),
                     class_task = COALESCE(?, class_task),
                     additional_info = COALESCE(?, additional_info)
-                WHERE id = ?
-            ");
-            $result = $stmt->execute([
+                WHERE id = ?" . $batchSql
+            );
+            $result = $stmt->execute(array_merge([
                 $data['topic_conducted'] ?? null,
                 $data['class_task'] ?? null,
                 $data['additional_info'] ?? null,
                 $id
-            ]);
+            ], $batchParams));
             
             if ($result) {
                 logActivity('class_completed', "Completed class ID: {$id}");
@@ -358,8 +391,11 @@ class ClassManager {
      */
     public function isStudentEnrolled($studentId, $classId) {
         $stmt = $this->db->prepare("
-            SELECT id FROM class_enrollments 
-            WHERE student_id = ? AND class_id = ? AND status = 'active'
+            SELECT ce.id FROM class_enrollments ce
+            JOIN classes c ON c.id = ce.class_id
+            JOIN students s ON s.id = ce.student_id
+            WHERE ce.student_id = ? AND ce.class_id = ? AND ce.status = 'active'
+            AND s.batch_id IS NOT NULL AND c.batch_id = s.batch_id
         ");
         $stmt->execute([$studentId, $classId]);
         return $stmt->fetch() !== false;

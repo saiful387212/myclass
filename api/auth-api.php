@@ -4,6 +4,8 @@
  */
 
 require_once __DIR__ . '/../config.php';
+require_once BASE_PATH . '/includes/auth-middleware.php';
+Auth::requireAdmin();
 
 // Only allow AJAX requests
 if (empty($_SERVER['HTTP_X_REQUESTED_WITH']) || 
@@ -25,13 +27,14 @@ switch ($action) {
         }
         
         $db = Database::getInstance();
+        [$batchSql, $batchParams] = Authorization::adminBatchFilter('r');
         $stmt = $db->prepare("
             SELECT r.*, a.full_name as reviewed_by_name 
             FROM registration_requests r 
             LEFT JOIN admins a ON r.reviewed_by = a.id 
-            WHERE r.id = ?
-        ");
-        $stmt->execute([$id]);
+            WHERE r.id = ?" . $batchSql
+        );
+        $stmt->execute(array_merge([$id], $batchParams));
         $request = $stmt->fetch();
         
         if ($request) {

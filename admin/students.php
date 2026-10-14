@@ -25,11 +25,19 @@ if ($action && $id) {
         Session::setFlash('error', 'Invalid security token');
         redirect(url('admin/students.php'));
     }
+
+    [$studentBatchSql, $studentBatchParams] = Authorization::adminBatchFilter();
+    $scopeStmt = $db->prepare("SELECT id FROM students WHERE id = ?" . $studentBatchSql);
+    $scopeStmt->execute(array_merge([$id], $studentBatchParams));
+    if (!$scopeStmt->fetchColumn()) {
+        Session::setFlash('error', 'Student not found.');
+        redirect(url('admin/students.php'));
+    }
     
     switch ($action) {
         case 'activate':
-            $stmt = $db->prepare("UPDATE students SET status = 'active' WHERE id = ?");
-            $result = $stmt->execute([$id]);
+            $stmt = $db->prepare("UPDATE students SET status = 'active' WHERE id = ?" . $studentBatchSql);
+            $result = $stmt->execute(array_merge([$id], $studentBatchParams));
             if ($result) {
                 logActivity('student_activated', "Activated student ID: {$id}");
                 Session::setFlash('success', 'Student activated successfully');
@@ -39,8 +47,8 @@ if ($action && $id) {
             break;
             
         case 'deactivate':
-            $stmt = $db->prepare("UPDATE students SET status = 'inactive' WHERE id = ?");
-            $result = $stmt->execute([$id]);
+            $stmt = $db->prepare("UPDATE students SET status = 'inactive' WHERE id = ?" . $studentBatchSql);
+            $result = $stmt->execute(array_merge([$id], $studentBatchParams));
             if ($result) {
                 logActivity('student_deactivated', "Deactivated student ID: {$id}");
                 Session::setFlash('success', 'Student deactivated successfully');
@@ -50,8 +58,8 @@ if ($action && $id) {
             break;
             
         case 'suspend':
-            $stmt = $db->prepare("UPDATE students SET status = 'suspended' WHERE id = ?");
-            $result = $stmt->execute([$id]);
+            $stmt = $db->prepare("UPDATE students SET status = 'suspended' WHERE id = ?" . $studentBatchSql);
+            $result = $stmt->execute(array_merge([$id], $studentBatchParams));
             if ($result) {
                 logActivity('student_suspended', "Suspended student ID: {$id}");
                 Session::setFlash('success', 'Student suspended successfully');
@@ -70,8 +78,8 @@ if ($action && $id) {
                 Session::setFlash('error', 'Cannot delete student with class enrollments');
             } else {
                 // Delete student
-                $stmt = $db->prepare("DELETE FROM students WHERE id = ?");
-                $result = $stmt->execute([$id]);
+                $stmt = $db->prepare("DELETE FROM students WHERE id = ?" . $studentBatchSql);
+                $result = $stmt->execute(array_merge([$id], $studentBatchParams));
                 if ($result) {
                     logActivity('student_deleted', "Deleted student ID: {$id}");
                     Session::setFlash('success', 'Student deleted successfully');
@@ -110,8 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_pin'])) {
     }
     
     $pinHash = Auth::hashPassword($newPin);
-    $stmt = $db->prepare("UPDATE students SET pin_hash = ? WHERE id = ?");
-    $result = $stmt->execute([$pinHash, $studentId]);
+    [$studentBatchSql, $studentBatchParams] = Authorization::adminBatchFilter();
+    $stmt = $db->prepare("UPDATE students SET pin_hash = ? WHERE id = ?" . $studentBatchSql);
+    $result = $stmt->execute(array_merge([$pinHash, $studentId], $studentBatchParams));
     
     if ($result) {
         logActivity('student_pin_reset', "Reset PIN for student ID: {$studentId}");
@@ -163,11 +172,16 @@ if (!empty($filters['batch'])) {
 $sql = "
     SELECT 
         s.*,
-        (SELECT COUNT(*) FROM class_enrollments WHERE student_id = s.id AND status = 'active') as enrolled_classes
+        (SELECT COUNT(*) FROM class_enrollments ce JOIN classes c ON c.id = ce.class_id WHERE ce.student_id = s.id AND ce.status = 'active' AND c.batch_id = s.batch_id) as enrolled_classes
     FROM students s
     WHERE 1=1
 ";
 $params = [];
+
+// Batch scope for admin
+[$batchSql, $batchParams] = Authorization::adminBatchFilter('s');
+$sql .= $batchSql;
+$params = array_merge($params, $batchParams);
 
 if (!empty($filters['search'])) {
     $sql .= " AND (s.full_name LIKE ? OR s.class_roll LIKE ? OR s.email LIKE ?)";
@@ -187,7 +201,8 @@ if (!empty($filters['department'])) {
     $params[] = '%' . $filters['department'] . '%';
 }
 
-if (!empty($filters['batch'])) {
+if (!empty($filters['batch']) && Authorization::isSuperAdmin()) {
+    // Batch admins are already filtered to their batch; super admin can filter by batch name
     $sql .= " AND s.batch = ?";
     $params[] = $filters['batch'];
 }
@@ -198,19 +213,22 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $students = $stmt->fetchAll();
 
-// Get status counts
+// Get status counts (batch-scoped)
 $statuses = ['active', 'inactive', 'pending', 'suspended', 'rejected'];
 $statusCounts = [];
 foreach ($statuses as $status) {
-    $stmt = $db->prepare("SELECT COUNT(*) FROM students WHERE status = ?");
-    $stmt->execute([$status]);
-    $statusCounts[$status] = $stmt->fetchColumn();
+    $scSql = "SELECT COUNT(*) FROM students s WHERE s.status = ?" . $batchSql;
+    $scStmt = $db->prepare($scSql);
+    $scStmt->execute(array_merge([$status], $batchParams));
+    $statusCounts[$status] = $scStmt->fetchColumn();
 }
 $totalStudents = array_sum($statusCounts);
 
-// Get pending registration count for badge
-$stmt = $db->query("SELECT COUNT(*) FROM registration_requests WHERE status = 'pending'");
-$pendingCount = $stmt->fetchColumn();
+// Get pending registration count for badge (batch-scoped)
+$prSql = "SELECT COUNT(*) FROM registration_requests r WHERE r.status = 'pending'" . (Authorization::isBatchAdmin() ? " AND r.batch_id = ?" : "");
+$prStmt = $db->prepare($prSql);
+$prStmt->execute(Authorization::isBatchAdmin() ? [Authorization::getAdminBatchId()] : []);
+$pendingCount = $prStmt->fetchColumn();
 
 include_once BASE_PATH . '/includes/header.php';
 include_once BASE_PATH . '/includes/sidebar-admin.php';

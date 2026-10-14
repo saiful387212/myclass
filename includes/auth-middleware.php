@@ -31,6 +31,7 @@ if (!$currentUser) {
 // Role-specific checks
 $userType = Session::get('user_type');
 if ($userType === 'admin') {
+    Session::set('admin_batch_id', isset($currentUser['batch_id']) ? (int)$currentUser['batch_id'] : null);
     // Check if admin is active
     if ($currentUser['status'] !== 'active') {
         Auth::logout();

@@ -17,6 +17,10 @@ svg {
         min-width: 0;
     }
 
+    .main-wrapper {
+        margin-left: 0;
+    }
+
     .main-content {
         padding-left: var(--spacing-md);
         padding-right: var(--spacing-md);

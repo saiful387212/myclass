@@ -72,6 +72,12 @@ if (!empty($filters['month'])) {
     ]);
 }
 
+if (Authorization::isBatchAdmin()) {
+    $filterBuilder->addCustom('c.batch_id = :admin_batch_id', [
+        ':admin_batch_id' => Authorization::getAdminBatchId()
+    ]);
+}
+
 // Get total count
 $countSql = "
     SELECT COUNT(*) as total 
@@ -110,18 +116,27 @@ $courses = $stmt->fetchAll();
 $statusCounts = [];
 $statuses = ['scheduled', 'completed', 'cancelled', 'retaked'];
 foreach ($statuses as $status) {
-    $stmt = $db->prepare("SELECT COUNT(*) FROM classes WHERE status = ?");
-    $stmt->execute([$status]);
+    $sql = "SELECT COUNT(*) FROM classes WHERE status = ?";
+    $params = [$status];
+    if (Authorization::isBatchAdmin()) {
+        $sql .= " AND batch_id = ?";
+        $params[] = Authorization::getAdminBatchId();
+    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
     $statusCounts[$status] = $stmt->fetchColumn();
 }
 $totalClasses = array_sum($statusCounts);
 
 // Get months for filter
-$stmt = $db->query("
-    SELECT DISTINCT DATE_FORMAT(class_date, '%Y-%m') as month 
-    FROM classes 
-    ORDER BY month DESC
-");
+$monthsSql = "SELECT DISTINCT DATE_FORMAT(class_date, '%Y-%m') as month FROM classes";
+$monthsParams = [];
+if (Authorization::isBatchAdmin()) {
+    $monthsSql .= " WHERE batch_id = ?";
+    $monthsParams[] = Authorization::getAdminBatchId();
+}
+$stmt = $db->prepare($monthsSql . " ORDER BY month DESC");
+$stmt->execute($monthsParams);
 $months = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
 include_once BASE_PATH . '/includes/header.php';
