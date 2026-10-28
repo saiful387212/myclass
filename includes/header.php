@@ -12,7 +12,7 @@
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' . APP_NAME : APP_NAME; ?></title>
     
     <!-- Favicon -->
-    <link rel="icon" href="<?php echo asset('images/favicon.ico'); ?>" type="image/x-icon">
+    <link rel="icon" href="<?php echo asset('icons/favicon.ico'); ?>" type="image/x-icon">
     
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -51,161 +51,389 @@
     }
     ?>
     <!-- ===== PWA META TAGS ===== -->
-<!-- Basic PWA Meta -->
-<link rel="manifest" href="<?php echo url('manifest.json'); ?>?v=<?php echo rawurlencode(APP_VERSION); ?>">
-<meta name="theme-color" content="#4F46E5">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ClassMate">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="application-name" content="ClassMate">
+    <!-- Basic PWA Meta -->
+    <link rel="manifest" href="<?php echo url('manifest.json'); ?>?v=<?php echo rawurlencode(APP_VERSION); ?>">
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ClassMate">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="ClassMate">
 
-<!-- Favicon & Icons -->
-<link rel="icon" href="<?php echo asset('images/favicon.ico'); ?>" type="image/x-icon">
-<link rel="apple-touch-icon" href="<?php echo asset('icons/apple-touch-icon.png'); ?>">
-<link rel="apple-touch-icon" sizes="192x192" href="<?php echo asset('icons/web-app-manifest-192x192.png'); ?>">
-<link rel="apple-touch-icon" sizes="512x512" href="<?php echo asset('icons/web-app-manifest-512x512.png'); ?>">
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" href="<?php echo asset('icons/favicon.ico'); ?>" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="96x96" href="<?php echo asset('icons/favicon-96x96.png'); ?>">
+    <link rel="apple-touch-icon" href="<?php echo asset('icons/apple-touch-icon.png'); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo asset('icons/apple-touch-icon.png'); ?>">
+    <link rel="apple-touch-icon" sizes="192x192" href="<?php echo asset('icons/web-app-manifest-192x192.png'); ?>">
+    <link rel="apple-touch-icon" sizes="512x512" href="<?php echo asset('icons/web-app-manifest-512x512.png'); ?>">
 
-<!-- Service Worker Registration -->
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-        navigator.serviceWorker.register('<?php echo url('sw.js'); ?>')
-            .then(function(registration) {
-                console.log('ServiceWorker registration successful');
-            })
-            .catch(function(error) {
-                console.log('ServiceWorker registration failed:', error);
-            });
-    });
-}
+    <!-- PWA Install Modal Styles -->
+    <style>
+    @keyframes pwaFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pwaScaleUp { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+    .pwa-step-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        background: #F9FAFB;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        padding: 12px 14px;
+        text-align: left;
+    }
+    .pwa-step-badge {
+        background: #4F46E5;
+        color: #ffffff;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    .pwa-step-text {
+        font-size: 0.875rem;
+        color: #374151;
+        line-height: 1.45;
+        flex: 1;
+    }
+    .pwa-inline-icon {
+        color: #4F46E5;
+        margin: 0 3px;
+        display: inline-block;
+    }
+    </style>
 
-// ===== Update App Function =====
-function updateApp() {
+    <!-- Service Worker & PWA Logic -->
+    <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(function(registration) {
-            if (registration) {
-                registration.update();
-                alert('Updating ClassMate... Please wait.');
-                setTimeout(function() {
-                    location.reload();
-                }, 2000);
-            }
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('<?php echo url('sw.js'); ?>')
+                .then(function(registration) {
+                    console.log('ClassMate ServiceWorker registered');
+                })
+                .catch(function(error) {
+                    console.warn('ClassMate ServiceWorker registration error:', error);
+                });
         });
     }
-}
 
-// ===== Prompt to Install PWA =====
-let deferredPrompt;
-let installPromptElement;
-
-function createInstallPrompt() {
-    if (installPromptElement || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        return;
+    // ===== Update App Function =====
+    function updateApp() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(function(registration) {
+                if (registration) {
+                    registration.update();
+                    alert('Updating ClassMate... Please wait.');
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                }
+            });
+        }
     }
 
-    installPromptElement = document.createElement('div');
-    installPromptElement.className = 'install-prompt';
-    installPromptElement.innerHTML = `
-        <div class="install-content">
-            <i class="fas fa-download"></i>
-            <span>Install ClassMate App</span>
-            <button onclick="installApp()" class="btn btn-sm btn-success">Install</button>
-            <button onclick="dismissInstall()" class="btn btn-sm btn-outline" aria-label="Dismiss install prompt">×</button>
-        </div>
-    `;
-    document.body.appendChild(installPromptElement);
-}
+    // ===== PWA Installation Logic =====
+    let deferredPrompt = null;
+    let installPromptElement = null;
 
-window.addEventListener('beforeinstallprompt', function(e) {
-    // Prevent Chrome 67 and earlier from automatically showing the prompt
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    deferredPrompt = e;
-    
-    createInstallPrompt();
-});
-
-// Keep a visible fallback for browsers that do not expose beforeinstallprompt.
-window.addEventListener('load', function() {
-    setTimeout(createInstallPrompt, 1500);
-});
-
-window.addEventListener('appinstalled', function() {
-    deferredPrompt = null;
-    if (installPromptElement) {
-        installPromptElement.remove();
-        installPromptElement = null;
+    function isAppInstalled() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.matchMedia('(display-mode: fullscreen)').matches ||
+               window.navigator.standalone === true;
     }
-});
 
-function installApp() {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(function(choiceResult) {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-            } else {
-                console.log('User dismissed the install prompt');
+    function getClientPlatform() {
+        const ua = navigator.userAgent || '';
+        const isIOS = (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isAndroid = /Android/i.test(ua);
+        const isMobile = isIOS || isAndroid || /webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua) || window.innerWidth <= 768;
+        const isChrome = /Chrome|CriOS/i.test(ua) && !/Edge|Edg|OPR|Opera|SamsungBrowser/i.test(ua);
+        const isEdge = /Edg|Edge/i.test(ua);
+        const isSamsung = /SamsungBrowser/i.test(ua);
+        const isFirefox = /Firefox|FxiOS/i.test(ua);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(ua) || (isIOS && !isChrome && !isFirefox && !isEdge);
+
+        return { ua, isIOS, isAndroid, isMobile, isChrome, isEdge, isSamsung, isFirefox, isSafari };
+    }
+
+    // Capture install prompt event as soon as browser fires it
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        window.deferredPrompt = e;
+        console.log('ClassMate PWA: beforeinstallprompt captured');
+        
+        if (!isAppInstalled() && !sessionStorage.getItem('dismissedInstallPrompt')) {
+            createInstallPrompt();
+        }
+    });
+
+    window.addEventListener('appinstalled', function() {
+        deferredPrompt = null;
+        window.deferredPrompt = null;
+        dismissInstall();
+        closeInstallModal();
+        showToast('ClassMate installed successfully! Open it from your home screen.', 'success');
+    });
+
+    // Display banner after short delay if not installed and not dismissed
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            if (!isAppInstalled() && !sessionStorage.getItem('dismissedInstallPrompt')) {
+                createInstallPrompt();
             }
-            deferredPrompt = null;
-            
-            // Remove install button
-            const prompt = document.querySelector('.install-prompt');
-            if (prompt) {
-                prompt.remove();
-                installPromptElement = null;
-            }
-        });
-    } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        alert('ClassMate is already installed.');
-    } else {
-        if (!window.isSecureContext) {
-            alert('App installation requires HTTPS. Open ClassMate using https:// or use http://localhost/myclass/ on this computer.');
+        }, 2500);
+    });
+
+    function createInstallPrompt() {
+        if (installPromptElement || isAppInstalled()) {
             return;
         }
 
-        // Detect iOS device
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIOS) {
-            alert('To install the app on iOS, tap the Share icon at the bottom of the screen and select "Add to Home Screen".');
-        } else {
-            showInstallHelp();
+        installPromptElement = document.createElement('div');
+        installPromptElement.id = 'pwaInstallBanner';
+        installPromptElement.className = 'install-prompt';
+        installPromptElement.innerHTML = `
+            <div class="install-content" style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+                    <img src="<?php echo asset('icons/web-app-manifest-192x192.png'); ?>" alt="ClassMate" style="width:36px;height:36px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.15);flex-shrink:0;">
+                    <div style="min-width:0;">
+                        <div style="font-weight:600;font-size:0.875rem;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Install ClassMate</div>
+                        <div style="font-size:0.75rem;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Quick access on mobile</div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                    <button type="button" onclick="installApp()" class="btn btn-sm btn-primary" style="padding:6px 14px;font-size:0.8rem;font-weight:600;border-radius:6px;display:flex;align-items:center;gap:6px;">
+                        <i class="fas fa-download"></i> Install
+                    </button>
+                    <button type="button" onclick="dismissInstall()" class="btn-outline" style="background:none;border:none;font-size:1.25rem;color:#9ca3af;cursor:pointer;padding:4px 8px;line-height:1;" aria-label="Dismiss">×</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(installPromptElement);
+    }
+
+    function dismissInstall() {
+        sessionStorage.setItem('dismissedInstallPrompt', 'true');
+        const prompt = document.getElementById('pwaInstallBanner') || document.querySelector('.install-prompt');
+        if (prompt) {
+            prompt.remove();
+            installPromptElement = null;
         }
     }
-}
 
-function showInstallHelp() {
-    const existingHelp = document.getElementById('installHelp');
-    if (existingHelp) {
-        existingHelp.hidden = false;
-        return;
+    function closeInstallModal() {
+        const modal = document.getElementById('classmateInstallModal');
+        if (modal) modal.remove();
     }
 
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const instructions = isAndroid
-        ? 'Chrome cannot install ClassMate as an app right now. To add it to your home screen, choose <strong>Create shortcut</strong> in the Chrome menu. The shortcut will open ClassMate in Chrome.'
-        : 'Open this page in the latest Chrome or Edge browser. Open the browser menu, then choose <strong>Install ClassMate</strong> or <strong>Add to Home screen</strong>.';
-    const help = document.createElement('div');
-    help.id = 'installHelp';
-    help.setAttribute('role', 'dialog');
-    help.setAttribute('aria-modal', 'true');
-    help.innerHTML = `
-        <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
-            <div style="background:#fff;border-radius:8px;max-width:420px;padding:24px;box-shadow:0 12px 32px rgba(0,0,0,.25);">
-                <h3 style="margin:0 0 12px;color:#111827;">Install ClassMate</h3>
-                <p style="margin:0 0 16px;color:#374151;line-height:1.5;">${instructions}</p>
-                <button type="button" onclick="document.getElementById('installHelp').remove()" class="btn btn-primary">Close</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(help);
-}
+    function installApp() {
+        if (isAppInstalled()) {
+            showToast('ClassMate is already installed and running!', 'success');
+            return;
+        }
 
-function dismissInstall() {
-    const prompt = document.querySelector('.install-prompt');
-    if (prompt) prompt.remove();
-}
+        // 1. If native deferredPrompt is ready, trigger native browser prompt
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function(choiceResult) {
+                if (choiceResult.outcome === 'accepted') {
+                    showToast('Installing ClassMate...', 'success');
+                }
+                deferredPrompt = null;
+                dismissInstall();
+                closeInstallModal();
+            });
+            return;
+        }
+
+        // 2. Check if connection is non-HTTPS on a remote origin
+        if (!window.isSecureContext) {
+            showInsecureContextModal();
+            return;
+        }
+
+        // 3. Fallback: Show tailored, visual install instructions for user's platform/browser
+        const platform = getClientPlatform();
+        showInstallGuide(platform);
+    }
+
+    function showInstallGuide(platform) {
+        closeInstallModal();
+        const appIcon = '<?php echo asset("icons/web-app-manifest-192x192.png"); ?>';
+
+        let title = 'Install ClassMate App';
+        let subtitle = 'Add ClassMate to your home screen for quick access and full offline features:';
+        let stepsHtml = '';
+
+        if (platform.isIOS) {
+            title = 'Install on iPhone & iPad';
+            subtitle = 'Follow these 3 simple steps in Safari or Chrome:';
+            stepsHtml = `
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">1</div>
+                    <div class="pwa-step-text">
+                        Tap the <strong>Share</strong> button <i class="fas fa-arrow-up-from-bracket pwa-inline-icon"></i> in your browser bar (bottom in Safari, top-right in Chrome/iPad).
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">2</div>
+                    <div class="pwa-step-text">
+                        Scroll down and tap <strong><i class="far fa-plus-square pwa-inline-icon"></i> Add to Home Screen</strong>.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">3</div>
+                    <div class="pwa-step-text">
+                        Tap <strong>Add</strong> in the top-right corner. ClassMate is now installed on your home screen!
+                    </div>
+                </div>
+            `;
+        } else if (platform.isSamsung) {
+            title = 'Install on Samsung Internet';
+            subtitle = 'Add ClassMate in Samsung Internet:';
+            stepsHtml = `
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">1</div>
+                    <div class="pwa-step-text">
+                        Tap the <strong>Menu</strong> <i class="fas fa-bars pwa-inline-icon"></i> button at the bottom-right.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">2</div>
+                    <div class="pwa-step-text">
+                        Tap <strong><i class="fas fa-plus pwa-inline-icon"></i> Add page to</strong>.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">3</div>
+                    <div class="pwa-step-text">
+                        Select <strong>App screen</strong> or <strong>Home screen</strong>.
+                    </div>
+                </div>
+            `;
+        } else if (platform.isAndroid) {
+            title = 'Install on Android';
+            subtitle = 'Add ClassMate directly from your browser:';
+            stepsHtml = `
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">1</div>
+                    <div class="pwa-step-text">
+                        Tap the <strong>menu</strong> (three dots <i class="fas fa-ellipsis-vertical pwa-inline-icon"></i>) in the top-right corner of Chrome/browser.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">2</div>
+                    <div class="pwa-step-text">
+                        Choose <strong><i class="fas fa-download pwa-inline-icon"></i> Install app</strong> or <strong>Add to Home screen</strong>.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">3</div>
+                    <div class="pwa-step-text">
+                        Tap <strong>Install</strong> to confirm. ClassMate will launch as a full native app!
+                    </div>
+                </div>
+            `;
+        } else {
+            title = 'Install ClassMate App';
+            subtitle = 'Install ClassMate on your device:';
+            stepsHtml = `
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">1</div>
+                    <div class="pwa-step-text">
+                        Click the <strong>Install icon</strong> <i class="fas fa-download pwa-inline-icon"></i> in the browser address bar.
+                    </div>
+                </div>
+                <div class="pwa-step-card">
+                    <div class="pwa-step-badge">2</div>
+                    <div class="pwa-step-text">
+                        Or open the browser menu <i class="fas fa-ellipsis-vertical pwa-inline-icon"></i> and click <strong>Install ClassMate</strong>.
+                    </div>
+                </div>
+            `;
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'classmateInstallModal';
+        modal.innerHTML = `
+            <div style="position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:pwaFadeIn 0.25s ease;">
+                <div style="background:#ffffff;border-radius:18px;max-width:440px;width:100%;box-shadow:0 20px 40px -8px rgba(0,0,0,0.3);overflow:hidden;animation:pwaScaleUp 0.25s cubic-bezier(0.16,1,0.3,1);">
+                    <div style="background:linear-gradient(135deg,#4F46E5 0%,#3730A3 100%);padding:20px;color:#fff;display:flex;align-items:center;gap:14px;position:relative;">
+                        <img src="${appIcon}" alt="ClassMate" style="width:48px;height:48px;border-radius:12px;background:#fff;padding:2px;box-shadow:0 4px 12px rgba(0,0,0,0.25);flex-shrink:0;">
+                        <div style="flex:1;min-width:0;">
+                            <h3 style="margin:0 0 2px;font-size:1.1rem;font-weight:700;color:#ffffff;line-height:1.2;">${title}</h3>
+                            <p style="margin:0;font-size:0.8rem;color:#E0E7FF;line-height:1.3;">Class Representative System</p>
+                        </div>
+                        <button type="button" onclick="closeInstallModal()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;" aria-label="Close">×</button>
+                    </div>
+                    <div style="padding:20px;">
+                        <p style="margin:0 0 14px;font-size:0.875rem;color:#4B5563;line-height:1.45;">${subtitle}</p>
+                        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+                            ${stepsHtml}
+                        </div>
+                        <div style="background:#EEF2FF;border:1px dashed #6366F1;border-radius:10px;padding:10px 12px;font-size:0.8rem;color:#3730A3;margin-bottom:16px;line-height:1.4;">
+                            <i class="fas fa-circle-info"></i> <strong>Already installed on PC?</strong> Chrome suppresses re-installation for apps already installed on your computer. In DevTools, go to <strong>Application → Manifest → click "Install"</strong>.
+                        </div>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" onclick="closeInstallModal()" class="btn btn-secondary" style="padding:9px 18px;border-radius:8px;font-weight:600;font-size:0.875rem;">Close</button>
+                            ${platform.isAndroid ? '<button type="button" onclick="retryInstallPrompt()" class="btn btn-primary" style="padding:9px 18px;border-radius:8px;font-weight:600;font-size:0.875rem;display:flex;align-items:center;gap:6px;"><i class=\"fas fa-arrows-rotate\"></i> Try Direct Install</button>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    function retryInstallPrompt() {
+        if (deferredPrompt) {
+            closeInstallModal();
+            deferredPrompt.prompt();
+        } else {
+            showToast('Please open the browser menu (⋮) and tap "Install app".', 'info');
+        }
+    }
+
+    function showInsecureContextModal() {
+        closeInstallModal();
+        const modal = document.createElement('div');
+        modal.id = 'classmateInstallModal';
+        modal.innerHTML = `
+            <div style="position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">
+                <div style="background:#ffffff;border-radius:18px;max-width:440px;width:100%;box-shadow:0 20px 40px -8px rgba(0,0,0,0.3);overflow:hidden;">
+                    <div style="background:#EF4444;padding:18px;color:#fff;display:flex;align-items:center;gap:12px;">
+                        <i class="fas fa-lock" style="font-size:1.5rem;"></i>
+                        <div style="flex:1;">
+                            <h3 style="margin:0;font-size:1.05rem;font-weight:700;">HTTPS Required for Mobile App</h3>
+                        </div>
+                        <button type="button" onclick="closeInstallModal()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;" aria-label="Close">×</button>
+                    </div>
+                    <div style="padding:20px;">
+                        <p style="margin:0 0 12px;font-size:0.875rem;color:#374151;line-height:1.5;">
+                            Mobile browsers strictly require a secure <strong>HTTPS connection</strong> to install progressive web apps.
+                        </p>
+                        <div style="background:#F3F4F6;border-radius:8px;padding:12px;font-size:0.825rem;color:#4B5563;margin-bottom:16px;line-height:1.45;">
+                            <strong>To install on your phone:</strong><br>
+                            • Open ClassMate on the live HTTPS site: <strong>https://classmate.site.je</strong><br>
+                            • Or if testing locally on Wi-Fi, open in Chrome: <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> and add your local IP.
+                        </div>
+                        <div style="text-align:right;">
+                            <button type="button" onclick="closeInstallModal()" class="btn btn-primary" style="padding:9px 18px;border-radius:8px;">Got It</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
 
 // ===== Offline Status Detection =====
 window.addEventListener('online', function() {

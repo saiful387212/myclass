@@ -716,4 +716,4 @@ function togglePinVisibility(inputId) {
 }
 </script>
 
-<?php include_once BASE_PATH . '/includes/footer.php'; ?>-
+<?php include_once BASE_PATH . '/includes/footer.php'; ?>

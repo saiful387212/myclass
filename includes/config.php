@@ -22,7 +22,8 @@ date_default_timezone_set('Asia/Dhaka');
 $requestAuthority = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $requestHost = strtolower(preg_replace('/:\d+$/', '', $requestAuthority));
 $localHosts = ['localhost', '127.0.0.1', '::1'];
-$isLocalEnvironment = in_array($requestHost, $localHosts, true);
+$isPrivateIp = preg_match('/^(127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/', $requestHost) || substr($requestHost, -6) === '.local';
+$isLocalEnvironment = in_array($requestHost, $localHosts, true) || $isPrivateIp;
 
 // Define Base Paths
 define('BASE_PATH', dirname(__DIR__));

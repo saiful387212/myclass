@@ -3,7 +3,7 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'classmate-v2.0.2';
+const CACHE_NAME = 'classmate-v2.0.3';
 const APP_ROOT = new URL('./', self.location.href).pathname;
 const OFFLINE_URL = APP_ROOT + 'offline.html';
 const appAsset = function(path) {
@@ -20,7 +20,10 @@ const ASSETS_TO_CACHE = [
   appAsset('assets/css/student.css'),
   appAsset('assets/js/main.js'),
   appAsset('assets/js/notifications.js'),
-  appAsset('assets/js/validation.js')
+  appAsset('assets/js/validation.js'),
+  appAsset('assets/icons/web-app-manifest-192x192.png'),
+  appAsset('assets/icons/web-app-manifest-512x512.png'),
+  appAsset('assets/icons/apple-touch-icon.png')
 ];
 
 function cacheAvailableAssets(cache) {

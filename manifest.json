@@ -2,11 +2,12 @@
   "name": "ClassMate - Class Representative Management System",
   "short_name": "ClassMate",
   "description": "Complete class management system for students and administrators",
-  "start_url": "./",
-  "id": "./",
+  "start_url": "./index.php",
+  "id": "./index.php",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#4F46E5",
   "theme_color": "#4F46E5",
   "categories": ["education", "productivity", "management"],
@@ -20,10 +21,22 @@
       "purpose": "any"
     },
     {
+      "src": "./assets/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "./assets/icons/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/web-app-manifest-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "./assets/icons/apple-touch-icon.png",
@@ -86,10 +99,6 @@
       ]
     }
   ],
-  "splash_pages": {
-    "dark": "/assets/images/splash-screen.png",
-    "light": "/assets/images/splash-screen.png"
-  },
   "prefer_related_applications": false,
   "related_applications": []
 }
