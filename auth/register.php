@@ -155,6 +155,16 @@ if ($step === 'register') {
                         $stmt->execute([$fullName, $classRoll, $email, $phone, $department, $session, $batchName, $batchId]);
                         
                         $requestId = $db->lastInsertId();
+                        // স্টুডেন্ট সেভ হওয়ার পর নিচের কোডটুকু দিন:
+require_once BASE_PATH . '/includes/NotificationManager.php';
+$notifier = new NotificationManager();
+
+$notifier->notifyAdmins(
+    '👤 New Registration Request',
+    'Student ' . $fullName . ' (' . $classRoll . ') has registered and is waiting for approval.',
+    'warning',
+    url('admin/registrations.php')
+);
                         
                         // Create student account with pending status and PIN
                         $stmt = $db->prepare("

@@ -563,7 +563,7 @@ include_once BASE_PATH . '/includes/header.php';
                                             <span class="class-code"><?php echo htmlspecialchars($class['class_code']); ?></span>
                                         </h4>
                                         <div class="routine-class-meta">
-                                            <span><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
+                                            <span class="routine-time"><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
                                             <span><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($class['instructor']); ?></span>
                                             <span><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($class['room'] ?: 'TBA'); ?></span>
                                         </div>
@@ -630,7 +630,7 @@ include_once BASE_PATH . '/includes/header.php';
                                             <span class="class-code"><?php echo htmlspecialchars($class['class_code']); ?></span>
                                         </h4>
                                         <div class="routine-class-meta">
-                                            <span><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
+                                            <span class="routine-time"><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
                                             <span><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($class['instructor']); ?></span>
                                             <span><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($class['room'] ?: 'TBA'); ?></span>
                                         </div>

@@ -45,6 +45,18 @@ if ($action && $id) {
                 Session::setFlash('error', 'Failed to activate student');
             }
             break;
+            // স্টুডেন্ট অ্যাপ্রুভ করার পর নিচের কোডটুকু দিন:
+require_once BASE_PATH . '/includes/NotificationManager.php';
+$notifier = new NotificationManager();
+
+$notifier->send(
+    'student',
+    $studentId,
+    '✅ Registration Approved',
+    'Your registration has been approved! You can now login with your PIN.',
+    'success',
+    url('auth/student-login.php')
+);
             
         case 'deactivate':
             $stmt = $db->prepare("UPDATE students SET status = 'inactive' WHERE id = ?" . $studentBatchSql);

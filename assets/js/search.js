@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Notification functions
 function markNotificationRead(id) {
-    fetch(`${BASE_URL}/api/notifications.php`, {
+    const baseUrl = window.BASE_URL || '';
+    fetch(`${baseUrl}/api/notifications.php?action=mark_read`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -95,6 +96,7 @@ function markNotificationRead(id) {
             const item = document.querySelector(`.notification-item[data-id="${id}"]`);
             if (item) {
                 item.classList.remove('unread');
+                item.classList.add('read');
                 const dot = item.querySelector('.notification-dot');
                 if (dot) dot.remove();
                 
@@ -106,7 +108,8 @@ function markNotificationRead(id) {
 }
 
 function markAllAsRead() {
-    fetch(`${BASE_URL}/api/notifications.php`, {
+    const baseUrl = window.BASE_URL || '';
+    fetch(`${baseUrl}/api/notifications.php?action=mark_all_read`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

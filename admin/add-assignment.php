@@ -92,6 +92,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$error) {
                 $result = $assignmentManager->create($data);
                 if ($result['success']) {
+                    // Notify students if assignment is published
+                    if (($data['status'] ?? '') === 'published') {
+                        try {
+                            $notifier = new NotificationManager();
+                            $stmt = $db->prepare("SELECT batch_id FROM classes WHERE id = ?");
+                            $stmt->execute([$data['class_id']]);
+                            $classBatchId = $stmt->fetchColumn();
+
+                            $deadlineStr = date('d M, h:i A', strtotime($data['deadline']));
+                            $notifier->notifyBatchStudents(
+                                $classBatchId,
+                                "📝 New Assignment: " . $data['title'],
+                                "Deadline: {$deadlineStr}. Max score: {$data['max_score']}.",
+                                'warning',
+                                url('student/assignments.php')
+                            );
+                        } catch (Throwable $e) {
+                            error_log('Assignment notification error: ' . $e->getMessage());
+                        }
+                    }
+
                     Session::setFlash('success', 'Assignment created successfully!');
                     redirect(url('admin/assignments.php'));
                 } else {

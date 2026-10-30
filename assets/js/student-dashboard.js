@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const items = Array.from(card.querySelectorAll('.routine-download-item'));
         const width = 760;
         const padding = 30;
-        const rowHeight = 116;
+        const rowHeight = 132;
         const headerHeight = 196;
         const height = headerHeight + Math.max(items.length, 1) * rowHeight + padding;
         const scale = 2;
@@ -196,14 +196,6 @@ document.addEventListener('DOMContentLoaded', function() {
             context.font = '600 12px Arial, sans-serif';
             context.fillText(String(index + 1).padStart(2, '0'), padding + 18, top + 25);
 
-            context.fillStyle = '#1e293b';
-            context.font = '700 18px Arial, sans-serif';
-            context.fillText(item.dataset.title || 'Class', padding + 52, top + 27, width - 245);
-            context.fillStyle = '#64748b';
-            context.font = '13px Arial, sans-serif';
-            context.fillText((item.dataset.code || '') + '  |  ' + (item.dataset.time || ''), padding + 52, top + 51, width - 105);
-            context.fillText((item.dataset.instructor || '') + '  |  ' + (item.dataset.room || 'TBA'), padding + 52, top + 76, width - 105);
-
             const status = item.querySelector('[data-routine-status]');
             const statusText = status ? status.textContent.trim() : 'Scheduled';
             const statusStyles = {
@@ -213,16 +205,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 Cancelled: { background: '#fee2e2', foreground: '#991b1b' }
             };
             const style = statusStyles[statusText] || statusStyles.Scheduled;
+
+            const titleX = padding + 52;
+            context.fillStyle = '#1e293b';
+            context.font = '700 18px Arial, sans-serif';
+            context.fillText(item.dataset.title || 'Class', titleX, top + 27, width - 245);
+
+            context.fillStyle = '#64748b';
+            context.font = '600 13px Arial, sans-serif';
+            const code = item.dataset.code || '';
+            context.fillText(code, titleX, top + 50, 180);
+            const codeWidth = Math.min(context.measureText(code).width, 180);
             context.font = '600 12px Arial, sans-serif';
             const badgeWidth = Math.min(context.measureText(statusText).width + 20, 112);
-            const badgeX = width - padding - badgeWidth - 14;
+            const badgeX = titleX + codeWidth + 12;
             context.fillStyle = style.background;
-            drawRoundedRect(context, badgeX, top + 15, badgeWidth, 25, 12);
+            drawRoundedRect(context, badgeX, top + 34, badgeWidth, 23, 12);
             context.fill();
             context.fillStyle = style.foreground;
             context.textAlign = 'center';
-            context.fillText(statusText, badgeX + badgeWidth / 2, top + 32, badgeWidth - 10);
+            context.fillText(statusText, badgeX + badgeWidth / 2, top + 50, badgeWidth - 10);
             context.textAlign = 'start';
+
+            context.font = '600 13px Arial, sans-serif';
+            const timeLabel = item.dataset.time || '';
+            const timeWidth = Math.min(context.measureText(timeLabel).width + 26, 220);
+            const timeX = titleX;
+            const timeY = top + 68;
+            context.fillStyle = '#eef2ff';
+            drawRoundedRect(context, timeX, timeY, timeWidth, 26, 8);
+            context.fill();
+            context.fillStyle = '#4338ca';
+            context.fillText(timeLabel, timeX + 12, timeY + 17, timeWidth - 20);
+
+            context.fillStyle = '#64748b';
+            context.font = '13px Arial, sans-serif';
+            const detailX = timeX + timeWidth + 14;
+            const detail = (item.dataset.instructor || '') + '  |  ' + (item.dataset.room || 'TBA');
+            context.fillText(detail, detailX, timeY + 17, width - padding - detailX - 10);
         });
 
         context.fillStyle = '#94a3b8';
@@ -251,8 +271,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ===== Auto-refresh notifications =====
     setInterval(function() {
-        // Check for new notifications
-        fetch('/api/notifications.php?action=count')
+        const apiUrl = window.API_NOTIFICATIONS_URL || ((window.BASE_URL || '') + '/api/notifications.php');
+        fetch(apiUrl + '?action=count')
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.count > 0) {

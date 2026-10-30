@@ -91,6 +91,7 @@ require_once BASE_PATH . '/includes/Auth.php';
 require_once BASE_PATH . '/includes/Authorization.php';
 require_once BASE_PATH . '/includes/Validation.php';
 require_once BASE_PATH . '/includes/FileUpload.php';
+require_once BASE_PATH . '/includes/NotificationManager.php';
 
 // Initialize Session
 Session::init();

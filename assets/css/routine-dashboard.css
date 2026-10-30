@@ -190,6 +190,22 @@
     color: #64748b;
 }
 
+.tomorrow-routine-card .routine-class-meta .routine-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 700;
+}
+
+.tomorrow-routine-card .routine-class-meta .routine-time i {
+    color: #4f46e5;
+}
+
 @media (max-width: 600px) {
     .tomorrow-routine-card .card-header {
         align-items: flex-start;

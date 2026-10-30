@@ -20,6 +20,7 @@
 <!-- Main JavaScript -->
 <script src="<?php echo asset('js/main.js') . '?v=' . APP_VERSION; ?>"></script>
 <script src="<?php echo asset('js/notifications.js') . '?v=' . APP_VERSION; ?>"></script>
+<script src="<?php echo asset('js/notifications-system.js') . '?v=' . APP_VERSION; ?>"></script>
 <script src="<?php echo asset('js/validation.js') . '?v=' . APP_VERSION; ?>"></script>
 
 <?php 
@@ -61,6 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php endforeach; ?>
 });
 </script>
-
+<script src="<?php echo asset('js/notifications-system.js'); ?>?v=<?php echo APP_VERSION; ?>"></script>
 </body>
 </html>

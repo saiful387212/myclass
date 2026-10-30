@@ -70,6 +70,7 @@ class AssignmentManager {
         }
     }
     
+        
     /**
      * Update assignment
      */

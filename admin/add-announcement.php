@@ -113,6 +113,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $announcementId = $db->lastInsertId();
                     Session::setFlash('success', 'Announcement created successfully!');
                     logActivity('announcement_created', "Created announcement: {$title}");
+                    // অ্যানাউন্সমেন্ট সেভ হওয়ার পর নিচের কোডটুকু দিন:
+if ($status === 'published') {
+    require_once BASE_PATH . '/includes/NotificationManager.php';
+    $notifier = new NotificationManager();
+
+    $notifier->notifyStudents(
+        '📢 New Announcement: ' . $title,
+        substr(strip_tags($content), 0, 100) . '...',
+        'info',
+        url('student/announcements.php')
+    );
+}
                     
                     // If published, notify students (batch-scoped)
                     if ($status === 'published') {

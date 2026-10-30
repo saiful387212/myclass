@@ -111,6 +111,9 @@
 
     <!-- Service Worker & PWA Logic -->
     <script>
+    window.BASE_URL = '<?php echo BASE_URL; ?>';
+    window.API_NOTIFICATIONS_URL = '<?php echo url('api/notifications.php'); ?>';
+
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
             // Use root-relative path for proper scope on mobile
@@ -535,112 +538,102 @@ function showToast(message, type) {
                     
                     <!-- ===== Header Actions ===== -->
                     <div class="header-actions">
-                        <!-- Notifications -->
-                        <?php 
-                        $unreadCount = 0;
-                        if (Auth::isLoggedIn()) {
-                            try {
-                                $db = Database::getInstance();
-                                $userId = Session::get('user_id');
-                                $userType = Session::get('user_type');
-                                $stmt = $db->prepare("
-                                    SELECT COUNT(*) FROM notifications 
-                                    WHERE user_id = ? AND user_type = ? AND is_read = 0
-                                ");
-                                $stmt->execute([$userId, $userType]);
-                                $unreadCount = (int)$stmt->fetchColumn();
-                            } catch (Throwable $e) {
-                                $unreadCount = 0;
-                            }
-                        }
-                        ?>
-                        <button type="button"
-                                class="action-btn notification-btn <?php echo $unreadCount > 0 ? 'has-unread' : ''; ?>"
-                                data-dropdown="notificationDropdown"
-                                aria-label="Notifications<?php echo $unreadCount > 0 ? ', ' . $unreadCount . ' unread' : ''; ?>"
-                                aria-expanded="false"
-                                aria-controls="notificationDropdown">
-                            <i class="fas fa-bell"></i>
-                            <?php if ($unreadCount > 0): ?>
-                                <span class="badge"><?php echo $unreadCount > 99 ? '99+' : $unreadCount; ?></span>
-                            <?php endif; ?>
-                        </button>
-                        
-                        <!-- Notification Dropdown -->
-                        <div class="dropdown-menu" id="notificationDropdown">
-                            <div class="dropdown-header">
-                                <span class="dropdown-title">Notifications</span>
-                                <?php if ($unreadCount > 0): ?>
-                                    <button class="btn btn-sm btn-outline" onclick="markAllAsRead()">
-                                        Mark all read
-                                    </button>
-                                <?php endif; ?>
-                            </div>
-                            <div class="dropdown-body" id="notificationList">
-                                <?php if (Auth::isLoggedIn()): ?>
-                                    <?php
-                                    $notifications = [];
-                                    try {
-                                        $db = Database::getInstance();
-                                        $userId = Session::get('user_id');
-                                        $userType = Session::get('user_type');
-                                        $stmt = $db->prepare("
-                                            SELECT * FROM notifications 
-                                            WHERE user_id = ? AND user_type = ? 
-                                            ORDER BY created_at DESC LIMIT 10
-                                        ");
-                                        $stmt->execute([$userId, $userType]);
-                                        $notifications = $stmt->fetchAll();
-                                    } catch (Throwable $e) {
-                                        $notifications = [];
-                                    }
-                                    
-                                    if (empty($notifications)):
-                                    ?>
-                                        <div class="empty-notifications">
-                                            <i class="fas fa-bell-slash"></i>
-                                            <p>No notifications</p>
-                                        </div>
-                                    <?php else: ?>
-                                        <?php foreach ($notifications as $notif): ?>
-                                            <a href="<?php echo htmlspecialchars($notif['link'] ?? '#'); ?>" 
-                                               class="notification-item <?php echo $notif['is_read'] ? 'read' : 'unread'; ?>"
-                                               data-id="<?php echo $notif['id']; ?>"
-                                               onclick="markNotificationRead(<?php echo $notif['id']; ?>)">
-                                                <div class="notification-icon">
-                                                    <i class="fas fa-<?php 
-                                                        echo $notif['notification_type'] === 'success' ? 'check-circle' : 
-                                                            ($notif['notification_type'] === 'error' ? 'exclamation-circle' : 
-                                                            ($notif['notification_type'] === 'warning' ? 'exclamation-triangle' : 'info-circle')); 
-                                                    ?>"></i>
-                                                </div>
-                                                <div class="notification-content">
-                                                    <div class="notification-title"><?php echo htmlspecialchars($notif['title']); ?></div>
-                                                    <div class="notification-message"><?php echo htmlspecialchars($notif['message']); ?></div>
-                                                    <div class="notification-time"><?php echo timeAgo($notif['created_at']); ?></div>
-                                                </div>
-                                                <?php if (!$notif['is_read']): ?>
-                                                    <span class="notification-dot"></span>
-                                                <?php endif; ?>
-                                            </a>
-                                        <?php endforeach; ?>
-                                        
-                                        <?php if (count($notifications) >= 10): ?>
-                                            <div class="dropdown-footer">
-                                                <a href="<?php echo url('notifications.php'); ?>" class="btn btn-sm btn-block btn-outline">
-                                                    View all notifications
-                                                </a>
-                                            </div>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                <?php else: ?>
-                                    <div class="empty-notifications">
-                                        <i class="fas fa-sign-in-alt"></i>
-                                        <p>Please login to see notifications</p>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
+                        <!-- ===== Notifications ===== -->
+<?php 
+$unreadCount = 0;
+$headerNotifications = [];
+if (Auth::isLoggedIn()) {
+    try {
+        $db = Database::getInstance();
+        $userId = Session::get('user_id');
+        $userType = Session::get('user_type');
+        $stmt = $db->prepare("
+            SELECT COUNT(*) FROM notifications 
+            WHERE user_id = ? AND user_type = ? AND is_read = 0
+        ");
+        $stmt->execute([$userId, $userType]);
+        $unreadCount = (int)$stmt->fetchColumn();
+
+        $stmt = $db->prepare("
+            SELECT * FROM notifications 
+            WHERE user_id = ? AND user_type = ? 
+            ORDER BY created_at DESC LIMIT 10
+        ");
+        $stmt->execute([$userId, $userType]);
+        $headerNotifications = $stmt->fetchAll();
+    } catch (Throwable $e) {
+        $unreadCount = 0;
+        $headerNotifications = [];
+    }
+}
+?>
+<button type="button"
+        class="action-btn notification-btn <?php echo $unreadCount > 0 ? 'has-unread' : ''; ?>"
+        id="notificationBtn"
+        data-dropdown="notificationDropdown"
+        aria-label="Notifications<?php echo $unreadCount > 0 ? ', ' . $unreadCount . ' unread' : ''; ?>"
+        aria-expanded="false"
+        aria-controls="notificationDropdown">
+    <i class="fas fa-bell"></i>
+    <span class="badge" id="notificationBadge" <?php echo $unreadCount > 0 ? '' : 'style="display:none;"'; ?>>
+        <?php echo $unreadCount > 99 ? '99+' : $unreadCount; ?>
+    </span>
+</button>
+
+<!-- Notification Dropdown -->
+<div class="dropdown-menu notification-dropdown" id="notificationDropdown">
+    <div class="dropdown-header">
+        <span class="dropdown-title">
+            <i class="fas fa-bell"></i> Notifications
+        </span>
+        <button class="btn btn-sm btn-outline" onclick="markAllNotificationsRead()" id="markAllBtn" 
+                <?php echo $unreadCount > 0 ? '' : 'style="display:none;"'; ?>>
+            Mark all read
+        </button>
+    </div>
+    <div class="dropdown-body" id="notificationList">
+        <?php if (empty($headerNotifications)): ?>
+            <div class="empty-notifications">
+                <i class="fas fa-bell-slash"></i>
+                <p>No notifications yet</p>
+                <small>You're all caught up!</small>
+            </div>
+        <?php else: ?>
+            <?php foreach ($headerNotifications as $n): ?>
+                <?php
+                $nType = $n['notification_type'] ?? 'info';
+                $nIcon = ($nType === 'success') ? 'fa-check-circle' : (($nType === 'error' || $nType === 'danger') ? 'fa-exclamation-circle' : (($nType === 'warning') ? 'fa-exclamation-triangle' : 'fa-info-circle'));
+                $nColor = ($nType === 'success') ? 'success' : (($nType === 'error' || $nType === 'danger') ? 'danger' : (($nType === 'warning') ? 'warning' : 'info'));
+                ?>
+                <a href="<?php echo !empty($n['link']) ? htmlspecialchars($n['link']) : 'javascript:void(0)'; ?>" 
+                   class="notification-item <?php echo $n['is_read'] ? 'read' : 'unread'; ?>" 
+                   data-id="<?php echo $n['id']; ?>"
+                   data-link="<?php echo htmlspecialchars($n['link'] ?? ''); ?>"
+                   data-read="<?php echo $n['is_read'] ? '1' : '0'; ?>"
+                   onclick="if (typeof markNotificationRead === 'function') markNotificationRead(<?php echo $n['id']; ?>);">
+                    <div class="notification-icon notification-icon-<?php echo $nColor; ?>">
+                        <i class="fas <?php echo $nIcon; ?>"></i>
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                        <div class="notification-message"><?php echo htmlspecialchars($n['message']); ?></div>
+                        <div class="notification-time">
+                            <i class="fas fa-clock"></i> <?php echo timeAgo($n['created_at']); ?>
                         </div>
+                    </div>
+                    <?php if (!$n['is_read']): ?>
+                        <span class="notification-dot"></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+    <div class="dropdown-footer">
+        <a href="<?php echo url('notifications.php'); ?>" class="btn btn-sm btn-block btn-outline">
+            <i class="fas fa-list"></i> View All Notifications
+        </a>
+    </div>
+</div>
                         
                         <!-- Quick Actions -->
                         <div class="action-btn" data-dropdown="quickActionsDropdown">

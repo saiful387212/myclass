@@ -244,6 +244,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if ($result['success']) {
+                    // Notify students about the new class
+                    try {
+                        $notifier = new NotificationManager();
+                        $classTitle = $data['class_title'];
+                        $courseTitle = $courseData['course_title'] ?? $data['class_code'];
+                        $classDate = date('d M Y', strtotime($data['class_date']));
+                        $classTime = date('h:i A', strtotime($data['start_time']));
+                        $notifier->notifyBatchStudents(
+                            $data['batch_id'],
+                            "📚 New Class: {$classTitle}",
+                            "{$courseTitle} class on {$classDate} at {$classTime} (Room: {$data['room']})",
+                            'info',
+                            url('student/classes.php')
+                        );
+                    } catch (Throwable $e) {
+                        error_log('Class notification error: ' . $e->getMessage());
+                    }
+
                     Session::setFlash('success', 'Class added successfully!');
                     redirect(url('admin/classes.php'));
                 } else {
