@@ -713,7 +713,7 @@ include_once BASE_PATH . '/includes/header.php';
     </div>
 <script>
 // Pass data to JavaScript for charts
-const chartData = {
+window.chartData = {
     classStatus: {
         scheduled: <?php echo $statCards['classes']['scheduled']; ?>,
         completed: <?php echo $statCards['classes']['completed']; ?>,
@@ -735,7 +735,6 @@ const chartData = {
     monthlyFund: <?php echo json_encode($monthlyFundData); ?>
 };
 
-console.log('Dashboard Data:', chartData);
 </script>
 
 <?php include_once BASE_PATH . '/includes/footer.php'; ?>

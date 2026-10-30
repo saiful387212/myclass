@@ -129,10 +129,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function downloadRoutineCard(card) {
         const items = Array.from(card.querySelectorAll('.routine-download-item'));
-        const width = 900;
-        const padding = 40;
-        const rowHeight = 112;
-        const headerHeight = 135;
+        const width = 760;
+        const padding = 30;
+        const rowHeight = 116;
+        const headerHeight = 196;
         const height = headerHeight + Math.max(items.length, 1) * rowHeight + padding;
         const scale = 2;
         const canvas = document.createElement('canvas');
@@ -146,21 +146,40 @@ document.addEventListener('DOMContentLoaded', function() {
         context.fillRect(0, 0, width, height);
 
         context.fillStyle = '#ffffff';
-        drawRoundedRect(context, 20, 20, width - 40, height - 40, 18);
+        drawRoundedRect(context, 18, 18, width - 36, height - 36, 18);
         context.fill();
 
         const date = new Date(card.dataset.routineDate + 'T00:00:00');
-        context.fillStyle = '#312e81';
-        context.font = '700 30px Arial, sans-serif';
-        context.fillText("Tomorrow's Classes", padding, 68);
+        context.save();
+        drawRoundedRect(context, 18, 18, width - 36, 116, 18);
+        context.clip();
+        const headerGradient = context.createLinearGradient(18, 18, width - 18, 134);
+        headerGradient.addColorStop(0, '#312e81');
+        headerGradient.addColorStop(1, '#4f46e5');
+        context.fillStyle = headerGradient;
+        context.fillRect(18, 18, width - 36, 116);
+        context.restore();
+
+        context.fillStyle = '#c7d2fe';
+        context.font = '600 13px Arial, sans-serif';
+        context.fillText('CLASSMATE  /  WEEKLY ROUTINE', padding, 53);
+        context.fillStyle = '#ffffff';
+        context.font = '700 28px Arial, sans-serif';
+        context.fillText("Tomorrow's Classes", padding, 88);
+        context.fillStyle = '#e0e7ff';
+        context.font = '16px Arial, sans-serif';
+        context.fillText(date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), padding, 114, width - padding * 2);
+
         context.fillStyle = '#64748b';
-        context.font = '18px Arial, sans-serif';
-        context.fillText(date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), padding, 100);
+        context.font = '600 13px Arial, sans-serif';
+        context.fillText(items.length + (items.length === 1 ? ' CLASS' : ' CLASSES'), padding, 164);
+        context.fillStyle = '#e2e8f0';
+        context.fillRect(padding, 177, width - padding * 2, 1);
 
         if (items.length === 0) {
             context.fillStyle = '#475569';
-            context.font = '20px Arial, sans-serif';
-            context.fillText('No classes scheduled.', padding, 170);
+            context.font = '18px Arial, sans-serif';
+            context.fillText('No classes scheduled for tomorrow.', padding, 220);
         }
 
         items.forEach(function(item, index) {
@@ -169,20 +188,46 @@ document.addEventListener('DOMContentLoaded', function() {
             drawRoundedRect(context, padding, top, width - padding * 2, rowHeight - 12, 12);
             context.fill();
 
+            context.fillStyle = '#4f46e5';
+            drawRoundedRect(context, padding, top, 4, rowHeight - 12, 2);
+            context.fill();
+
+            context.fillStyle = '#94a3b8';
+            context.font = '600 12px Arial, sans-serif';
+            context.fillText(String(index + 1).padStart(2, '0'), padding + 18, top + 25);
+
             context.fillStyle = '#1e293b';
-            context.font = '700 20px Arial, sans-serif';
-            context.fillText(item.dataset.title || 'Class', padding + 18, top + 30, width - 280);
-            context.fillStyle = '#475569';
-            context.font = '15px Arial, sans-serif';
-            context.fillText((item.dataset.code || '') + '  |  ' + (item.dataset.time || ''), padding + 18, top + 56);
-            context.fillText((item.dataset.instructor || '') + '  |  ' + (item.dataset.room || 'TBA'), padding + 18, top + 82, width - 250);
+            context.font = '700 18px Arial, sans-serif';
+            context.fillText(item.dataset.title || 'Class', padding + 52, top + 27, width - 245);
+            context.fillStyle = '#64748b';
+            context.font = '13px Arial, sans-serif';
+            context.fillText((item.dataset.code || '') + '  |  ' + (item.dataset.time || ''), padding + 52, top + 51, width - 105);
+            context.fillText((item.dataset.instructor || '') + '  |  ' + (item.dataset.room || 'TBA'), padding + 52, top + 76, width - 105);
 
             const status = item.querySelector('[data-routine-status]');
             const statusText = status ? status.textContent.trim() : 'Scheduled';
-            context.font = '600 14px Arial, sans-serif';
-            context.fillStyle = statusText === 'Cancelled' ? '#991b1b' : statusText === 'Completed' ? '#374151' : '#3730a3';
-            context.fillText(statusText, width - padding - 145, top + 35, 125);
+            const statusStyles = {
+                Scheduled: { background: '#e0e7ff', foreground: '#3730a3' },
+                'In Progress': { background: '#d1fae5', foreground: '#065f46' },
+                Completed: { background: '#e5e7eb', foreground: '#374151' },
+                Cancelled: { background: '#fee2e2', foreground: '#991b1b' }
+            };
+            const style = statusStyles[statusText] || statusStyles.Scheduled;
+            context.font = '600 12px Arial, sans-serif';
+            const badgeWidth = Math.min(context.measureText(statusText).width + 20, 112);
+            const badgeX = width - padding - badgeWidth - 14;
+            context.fillStyle = style.background;
+            drawRoundedRect(context, badgeX, top + 15, badgeWidth, 25, 12);
+            context.fill();
+            context.fillStyle = style.foreground;
+            context.textAlign = 'center';
+            context.fillText(statusText, badgeX + badgeWidth / 2, top + 32, badgeWidth - 10);
+            context.textAlign = 'start';
         });
+
+        context.fillStyle = '#94a3b8';
+        context.font = '12px Arial, sans-serif';
+        context.fillText('ClassMate - Your class schedule', padding, height - 27);
 
         const link = document.createElement('a');
         link.download = 'tomorrow-classes-' + card.dataset.routineDate + '.png';

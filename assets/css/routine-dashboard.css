@@ -7,9 +7,92 @@
     flex-wrap: wrap;
 }
 
+.tomorrow-routine-card {
+    overflow: hidden;
+    border: 1px solid #dbe3f0;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(30, 41, 59, 0.06);
+}
+
+.tomorrow-routine-card .card-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #e8edf5;
+    background: linear-gradient(115deg, #f8faff 0%, #eef4ff 100%);
+}
+
+.routine-card-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.routine-heading-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border-radius: 13px;
+    background: #e0e7ff;
+    color: #4338ca;
+    font-size: 19px;
+}
+
+.routine-card-heading .card-title {
+    margin: 0;
+    color: #172554;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.routine-card-heading p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.82rem;
+}
+
 .routine-class-list {
     display: grid;
     gap: 12px;
+}
+
+.tomorrow-routine-card .card-body {
+    padding: 18px 20px;
+}
+
+.routine-card-actions {
+    flex-wrap: nowrap;
+}
+
+.routine-class-count {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+#download-tomorrow-routine {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    background: #fff;
+    color: #3730a3;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#download-tomorrow-routine:hover {
+    border-color: #818cf8;
+    background: #eef2ff;
 }
 
 .routine-class-item {
@@ -71,12 +154,117 @@
     background: #fee2e2;
 }
 
+.tomorrow-routine-card .routine-class-item {
+    padding: 16px;
+    border-color: #e5eaf2;
+    border-radius: 12px;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.tomorrow-routine-card .routine-class-item:hover {
+    transform: translateY(-1px);
+    border-color: #c7d2fe;
+    box-shadow: 0 5px 16px rgba(30, 41, 59, 0.06);
+}
+
+.tomorrow-routine-card .routine-class-content h4 {
+    color: #1e293b;
+    font-size: 0.96rem;
+    line-height: 1.45;
+}
+
+.tomorrow-routine-card .class-code {
+    display: inline-block;
+    margin-left: 5px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.tomorrow-routine-card .routine-class-meta {
+    gap: 8px 18px;
+    line-height: 1.5;
+}
+
+.tomorrow-routine-card .routine-class-meta i {
+    color: #64748b;
+}
+
 @media (max-width: 600px) {
-    .routine-class-item {
+    .tomorrow-routine-card .card-header {
+        align-items: flex-start;
         flex-direction: column;
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .routine-card-heading {
+        align-items: flex-start;
+    }
+
+    .routine-card-heading .card-title {
+        font-size: 1rem;
     }
 
     .routine-card-actions {
         width: 100%;
+    }
+
+    #download-tomorrow-routine {
+        flex: 1;
+    }
+
+    .tomorrow-routine-card .card-body {
+        padding: 12px;
+    }
+
+    .routine-class-item {
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .tomorrow-routine-card .routine-class-item {
+        flex-direction: row;
+    }
+
+    .tomorrow-routine-card .routine-class-content {
+        flex: 1;
+    }
+
+    .tomorrow-routine-card .routine-class-content h4 {
+        font-size: 0.9rem;
+    }
+
+    .tomorrow-routine-card .routine-class-meta {
+        flex-direction: column;
+        gap: 5px;
+        font-size: 0.78rem;
+    }
+
+    .tomorrow-routine-card .routine-status {
+        padding: 5px 8px;
+        font-size: 0.68rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .routine-class-count {
+        padding: 6px 8px;
+        font-size: 0.72rem;
+    }
+
+    #download-tomorrow-routine {
+        gap: 6px;
+        padding: 7px 9px;
+        font-size: 0.78rem;
+    }
+
+    .tomorrow-routine-card .routine-class-item {
+        flex-direction: column;
+    }
+
+    .tomorrow-routine-card .routine-status {
+        align-self: flex-start;
     }
 }

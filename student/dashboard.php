@@ -577,13 +577,19 @@ include_once BASE_PATH . '/includes/header.php';
             </div>
 
             <!-- ===== Tomorrow's Classes ===== -->
-            <div class="card routine-schedule-card" id="tomorrow-routine-card" data-routine-date="<?php echo htmlspecialchars($tomorrow); ?>">
+            <div class="card routine-schedule-card tomorrow-routine-card" id="tomorrow-routine-card" data-routine-date="<?php echo htmlspecialchars($tomorrow); ?>">
                 <div class="card-header">
-                    <h3 class="card-title"><i class="fas fa-calendar-plus text-info"></i> Tomorrow's Classes</h3>
+                    <div class="routine-card-heading">
+                        <span class="routine-heading-icon"><i class="fas fa-calendar-day"></i></span>
+                        <div>
+                            <h3 class="card-title">Tomorrow's Classes</h3>
+                            <p><?php echo date('l, d M Y', strtotime($tomorrow)); ?></p>
+                        </div>
+                    </div>
                     <div class="routine-card-actions">
-                        <span class="badge badge-info"><?php echo count($tomorrowClasses); ?> Classes</span>
-                        <button type="button" class="btn btn-sm btn-outline" id="download-tomorrow-routine">
-                            <i class="fas fa-download"></i> Download Image
+                        <span class="routine-class-count"><?php echo count($tomorrowClasses); ?> <?php echo count($tomorrowClasses) === 1 ? 'class' : 'classes'; ?></span>
+                        <button type="button" class="btn btn-sm btn-outline" id="download-tomorrow-routine" aria-label="Download tomorrow's classes as an image">
+                            <i class="fas fa-download"></i><span>Download image</span>
                         </button>
                     </div>
                 </div>
@@ -591,8 +597,8 @@ include_once BASE_PATH . '/includes/header.php';
                     <?php if (empty($tomorrowClasses)): ?>
                         <div class="empty-state">
                             <i class="fas fa-calendar-check"></i>
-                            <h4>No Classes Tomorrow</h4>
-                            <p>You have no classes scheduled for tomorrow.</p>
+                            <h4>No classes scheduled</h4>
+                            <p>There are no classes on your timetable for tomorrow.</p>
                         </div>
                     <?php else: ?>
                         <div class="routine-class-list">
