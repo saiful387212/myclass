@@ -113,7 +113,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusClass = 'routine-status-live';
             }
 
+            const statusIcon = status.querySelector('i');
             status.textContent = label;
+            if (statusIcon) {
+                statusIcon.className = 'far fa-clock';
+                statusIcon.setAttribute('aria-hidden', 'true');
+                status.prepend(statusIcon);
+            }
             status.classList.remove('routine-status-scheduled', 'routine-status-live', 'routine-status-completed', 'routine-status-cancelled');
             status.classList.add(statusClass);
         });
@@ -131,9 +137,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const items = Array.from(card.querySelectorAll('.routine-download-item'));
         const width = 760;
         const padding = 30;
-        const rowHeight = 132;
-        const headerHeight = 196;
-        const height = headerHeight + Math.max(items.length, 1) * rowHeight + padding;
+        const rowHeight = 248;
+        const headerHeight = 164;
+        const height = headerHeight + Math.max(items.length, 1) * (rowHeight + 14) + 35;
         const scale = 2;
         const canvas = document.createElement('canvas');
         canvas.width = width * scale;
@@ -145,56 +151,51 @@ document.addEventListener('DOMContentLoaded', function() {
         context.fillStyle = '#f3f6fb';
         context.fillRect(0, 0, width, height);
 
-        context.fillStyle = '#ffffff';
-        drawRoundedRect(context, 18, 18, width - 36, height - 36, 18);
-        context.fill();
-
         const date = new Date(card.dataset.routineDate + 'T00:00:00');
         context.save();
-        drawRoundedRect(context, 18, 18, width - 36, 116, 18);
+        drawRoundedRect(context, 18, 18, width - 36, headerHeight - 8, 18);
         context.clip();
-        const headerGradient = context.createLinearGradient(18, 18, width - 18, 134);
-        headerGradient.addColorStop(0, '#312e81');
-        headerGradient.addColorStop(1, '#4f46e5');
+        const headerGradient = context.createLinearGradient(18, 18, width - 18, headerHeight);
+        headerGradient.addColorStop(0, '#18385f');
+        headerGradient.addColorStop(1, '#213e68');
         context.fillStyle = headerGradient;
-        context.fillRect(18, 18, width - 36, 116);
+        context.fillRect(18, 18, width - 36, headerHeight);
         context.restore();
 
-        context.fillStyle = '#c7d2fe';
-        context.font = '600 13px Arial, sans-serif';
-        context.fillText('CLASSMATE  /  WEEKLY ROUTINE', padding, 53);
+        drawCalendarIcon(context, width - 66, 49, '#ffffff');
+        context.fillStyle = '#5eead4';
+        context.font = '700 34px Arial, sans-serif';
+        context.fillText('▦', padding, 75);
         context.fillStyle = '#ffffff';
-        context.font = '700 28px Arial, sans-serif';
-        context.fillText("Tomorrow's Classes", padding, 88);
-        context.fillStyle = '#e0e7ff';
+        context.font = '700 29px Arial, sans-serif';
+        context.fillText("Tomorrow's Classes", padding + 54, 64, width - 190);
+        context.fillStyle = '#5eead4';
+        context.fillRect(padding + 54, 74, 112, 3);
+        context.fillStyle = '#cbd9eb';
         context.font = '16px Arial, sans-serif';
-        context.fillText(date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), padding, 114, width - padding * 2);
-
-        context.fillStyle = '#64748b';
+        context.fillText(date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), padding + 54, 104, width - 100);
+        context.fillStyle = '#d7e3f2';
         context.font = '600 13px Arial, sans-serif';
-        context.fillText(items.length + (items.length === 1 ? ' CLASS' : ' CLASSES'), padding, 164);
-        context.fillStyle = '#e2e8f0';
-        context.fillRect(padding, 177, width - padding * 2, 1);
+        context.fillText(items.length + (items.length === 1 ? ' CLASS SCHEDULED' : ' CLASSES SCHEDULED'), padding, 139);
 
         if (items.length === 0) {
+            context.fillStyle = '#ffffff';
+            drawRoundedRect(context, padding, headerHeight + 14, width - padding * 2, 112, 14);
+            context.fill();
             context.fillStyle = '#475569';
             context.font = '18px Arial, sans-serif';
-            context.fillText('No classes scheduled for tomorrow.', padding, 220);
+            context.fillText('No classes scheduled for tomorrow.', padding + 20, headerHeight + 78);
         }
 
         items.forEach(function(item, index) {
-            const top = headerHeight + index * rowHeight;
-            context.fillStyle = '#f8fafc';
-            drawRoundedRect(context, padding, top, width - padding * 2, rowHeight - 12, 12);
+            const top = headerHeight + 14 + index * (rowHeight + 14);
+            context.fillStyle = '#ffffff';
+            drawRoundedRect(context, padding, top, width - padding * 2, rowHeight, 15);
             context.fill();
 
-            context.fillStyle = '#4f46e5';
-            drawRoundedRect(context, padding, top, 4, rowHeight - 12, 2);
+            context.fillStyle = '#19a88a';
+            drawRoundedRect(context, padding, top, 6, rowHeight, 3);
             context.fill();
-
-            context.fillStyle = '#94a3b8';
-            context.font = '600 12px Arial, sans-serif';
-            context.fillText(String(index + 1).padStart(2, '0'), padding + 18, top + 25);
 
             const status = item.querySelector('[data-routine-status]');
             const statusText = status ? status.textContent.trim() : 'Scheduled';
@@ -206,43 +207,83 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             const style = statusStyles[statusText] || statusStyles.Scheduled;
 
-            const titleX = padding + 52;
-            context.fillStyle = '#1e293b';
-            context.font = '700 18px Arial, sans-serif';
-            context.fillText(item.dataset.title || 'Class', titleX, top + 27, width - 245);
+            const titleX = padding + 104;
+            context.beginPath();
+            context.arc(padding + 53, top + 48, 32, 0, Math.PI * 2);
+            context.fillStyle = '#dcf7f2';
+            context.fill();
+            drawGraduationCap(context, padding + 53, top + 48);
 
-            context.fillStyle = '#64748b';
-            context.font = '600 13px Arial, sans-serif';
-            const code = item.dataset.code || '';
-            context.fillText(code, titleX, top + 50, 180);
-            const codeWidth = Math.min(context.measureText(code).width, 180);
-            context.font = '600 12px Arial, sans-serif';
-            const badgeWidth = Math.min(context.measureText(statusText).width + 20, 112);
-            const badgeX = titleX + codeWidth + 12;
+            const badgeWidth = Math.min(context.measureText(statusText).width + 38, 128);
+            const badgeX = width - padding - badgeWidth - 16;
             context.fillStyle = style.background;
-            drawRoundedRect(context, badgeX, top + 34, badgeWidth, 23, 12);
+            drawRoundedRect(context, badgeX, top + 26, badgeWidth, 32, 16);
             context.fill();
+            context.beginPath();
+            context.arc(badgeX + 16, top + 42, 5, 0, Math.PI * 2);
+            context.strokeStyle = style.foreground;
+            context.lineWidth = 2;
+            context.stroke();
+            context.beginPath();
+            context.moveTo(badgeX + 16, top + 39);
+            context.lineTo(badgeX + 16, top + 42);
+            context.lineTo(badgeX + 18, top + 44);
+            context.stroke();
             context.fillStyle = style.foreground;
-            context.textAlign = 'center';
-            context.fillText(statusText, badgeX + badgeWidth / 2, top + 50, badgeWidth - 10);
-            context.textAlign = 'start';
-
             context.font = '600 13px Arial, sans-serif';
-            const timeLabel = item.dataset.time || '';
-            const timeWidth = Math.min(context.measureText(timeLabel).width + 26, 220);
-            const timeX = titleX;
-            const timeY = top + 68;
-            context.fillStyle = '#eef2ff';
-            drawRoundedRect(context, timeX, timeY, timeWidth, 26, 8);
-            context.fill();
-            context.fillStyle = '#4338ca';
-            context.fillText(timeLabel, timeX + 12, timeY + 17, timeWidth - 20);
+            context.fillText(statusText, badgeX + 27, top + 47, badgeWidth - 34);
 
-            context.fillStyle = '#64748b';
-            context.font = '13px Arial, sans-serif';
-            const detailX = timeX + timeWidth + 14;
-            const detail = (item.dataset.instructor || '') + '  |  ' + (item.dataset.room || 'TBA');
-            context.fillText(detail, detailX, timeY + 17, width - padding - detailX - 10);
+            context.fillStyle = '#1e293b';
+            context.font = '700 21px Arial, sans-serif';
+            context.fillText(item.dataset.course || 'Class', titleX, top + 43, badgeX - titleX - 18);
+            context.fillStyle = '#718198';
+            context.font = '15px Arial, sans-serif';
+            context.fillText(item.dataset.title || '', titleX, top + 70, badgeX - titleX - 18);
+
+            const panelX = padding + 22;
+            const panelY = top + 94;
+            const panelWidth = width - padding * 2 - 44;
+            context.fillStyle = '#f2f6fc';
+            drawRoundedRect(context, panelX, panelY, panelWidth, 70, 12);
+            context.fill();
+            context.fillStyle = '#2776b8';
+            context.font = '600 12px Arial, sans-serif';
+            context.fillText('CLASS CODE', panelX + 18, panelY + 25);
+            context.fillStyle = '#1e3555';
+            context.font = '700 16px Arial, sans-serif';
+            context.fillText(item.dataset.code || '-', panelX + 18, panelY + 50, panelWidth * 0.4);
+
+            const dividerX = panelX + panelWidth * 0.43;
+            context.fillStyle = '#d6e0ed';
+            context.fillRect(dividerX, panelY + 12, 1, 46);
+            context.fillStyle = '#2776b8';
+            context.font = '600 12px Arial, sans-serif';
+            context.fillText('TIME', dividerX + 18, panelY + 25);
+            context.fillStyle = '#153557';
+            context.font = '700 16px Arial, sans-serif';
+            context.fillText(item.dataset.time || '-', dividerX + 18, panelY + 50, panelWidth - (dividerX - panelX) - 30);
+
+            const footerY = top + 194;
+            drawMapPin(context, panelX + 10, footerY - 5, '#199b88');
+            context.fillStyle = '#718198';
+            context.font = '12px Arial, sans-serif';
+            context.fillText('ROOM', panelX + 34, footerY - 3);
+            context.fillStyle = '#1e3555';
+            context.font = '700 14px Arial, sans-serif';
+            context.fillText(item.dataset.room || 'TBA', panelX + 34, footerY + 18, 145);
+
+            const teacherX = panelX + panelWidth * 0.38;
+            context.fillStyle = '#e0e7ff';
+            context.beginPath();
+            context.arc(teacherX + 10, footerY + 1, 7, 0, Math.PI * 2);
+            context.fill();
+            context.fillRect(teacherX + 2, footerY + 9, 16, 8);
+            context.fillStyle = '#718198';
+            context.font = '12px Arial, sans-serif';
+            context.fillText('TEACHER', teacherX + 28, footerY - 3);
+            context.fillStyle = '#1e3555';
+            context.font = '700 14px Arial, sans-serif';
+            context.fillText(item.dataset.instructor || '-', teacherX + 28, footerY + 18, panelWidth - (teacherX - panelX) - 42);
         });
 
         context.fillStyle = '#94a3b8';
@@ -253,6 +294,55 @@ document.addEventListener('DOMContentLoaded', function() {
         link.download = 'tomorrow-classes-' + card.dataset.routineDate + '.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
+    }
+
+    function drawCalendarIcon(context, x, y, color) {
+        context.strokeStyle = color;
+        context.lineWidth = 3;
+        drawRoundedRect(context, x, y, 28, 27, 4);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x + 1, y + 8);
+        context.lineTo(x + 27, y + 8);
+        context.moveTo(x + 8, y - 3);
+        context.lineTo(x + 8, y + 5);
+        context.moveTo(x + 20, y - 3);
+        context.lineTo(x + 20, y + 5);
+        context.stroke();
+    }
+
+    function drawGraduationCap(context, x, y) {
+        context.fillStyle = '#17627a';
+        context.beginPath();
+        context.moveTo(x - 19, y - 5);
+        context.lineTo(x, y - 15);
+        context.lineTo(x + 19, y - 5);
+        context.lineTo(x, y + 4);
+        context.closePath();
+        context.fill();
+        context.fillRect(x - 12, y + 2, 24, 4);
+        context.strokeStyle = '#17627a';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(x + 17, y - 5);
+        context.lineTo(x + 17, y + 8);
+        context.stroke();
+        context.beginPath();
+        context.arc(x + 17, y + 10, 2, 0, Math.PI * 2);
+        context.fill();
+    }
+
+    function drawMapPin(context, x, y, color) {
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(x, y, 8, Math.PI, 0);
+        context.lineTo(x, y + 13);
+        context.closePath();
+        context.fill();
+        context.fillStyle = '#ffffff';
+        context.beginPath();
+        context.arc(x, y - 1, 2.5, 0, Math.PI * 2);
+        context.fill();
     }
 
     function drawRoundedRect(context, x, y, width, height, radius) {
