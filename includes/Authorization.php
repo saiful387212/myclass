@@ -23,7 +23,8 @@ class Authorization {
      */
     public static function isSuperAdmin(): bool {
         if (!Auth::checkRole('admin')) return false;
-        return Session::get('admin_batch_id') === null;
+        $id = Session::get('admin_batch_id');
+        return empty($id) || (int)$id <= 0;
     }
 
     /**
@@ -31,7 +32,8 @@ class Authorization {
      */
     public static function isBatchAdmin(): bool {
         if (!Auth::checkRole('admin')) return false;
-        return Session::get('admin_batch_id') !== null;
+        $id = Session::get('admin_batch_id');
+        return !empty($id) && (int)$id > 0;
     }
 
     /**
@@ -40,7 +42,7 @@ class Authorization {
     public static function getAdminBatchId(): ?int {
         if (!Auth::checkRole('admin')) return null;
         $id = Session::get('admin_batch_id');
-        return $id !== null ? (int)$id : null;
+        return (!empty($id) && (int)$id > 0) ? (int)$id : null;
     }
 
     /**

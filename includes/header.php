@@ -52,7 +52,7 @@
     ?>
     <!-- ===== PWA META TAGS ===== -->
     <!-- Basic PWA Meta -->
-    <link rel="manifest" href="<?php echo url('manifest.php'); ?>" crossorigin="use-credentials">
+    <link rel="manifest" href="<?php echo url('manifest.php'); ?>">
     <meta name="theme-color" content="#4F46E5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">

@@ -7,16 +7,20 @@
 
 require_once __DIR__ . '/includes/config.php';
 
-header('Content-Type: application/manifest+json');
+header('Content-Type: application/manifest+json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
 header('Cache-Control: public, max-age=86400');
+
+$startUrl = url('index.php');
+$scopeUrl = url('');
 
 $manifest = [
     'name' => 'ClassMate - Class Representative Management System',
     'short_name' => 'ClassMate',
     'description' => 'Complete class management system for students and administrators',
-    'start_url' => url('index.php'),
-    'id' => '/myclass/',
-    'scope' => url(''),
+    'start_url' => $startUrl,
+    'id' => $startUrl,
+    'scope' => $scopeUrl,
     'display' => 'standalone',
     'display_override' => ['standalone', 'minimal-ui'],
     'orientation' => 'any',

@@ -46,12 +46,7 @@ $upcomingClasses = 0;
 
 try {
     // Total classes by status
-    $classStatsSql = "
-        SELECT 
-            status,
-            COUNT(*) as count
-        FROM classes
-    ";
+    $classStatsSql = "SELECT status, COUNT(*) as count FROM classes";
     if ($isBatchAdmin) {
         $classStatsSql .= " WHERE batch_id = ?";
     }
@@ -73,16 +68,30 @@ try {
         WHERE class_date = ?" . ($isBatchAdmin ? " AND batch_id = ?" : "") . "
     ");
     $stmt->execute($isBatchAdmin ? [$today, $adminBatchId] : [$today]);
-    $todayClasses = $stmt->fetch();
+    $row = $stmt->fetch();
+    if ($row) {
+        $todayClasses = [
+            'total' => (int)($row['total'] ?? 0),
+            'scheduled' => (int)($row['scheduled'] ?? 0),
+            'completed' => (int)($row['completed'] ?? 0),
+            'cancelled' => (int)($row['cancelled'] ?? 0),
+            'retaked' => (int)($row['retaked'] ?? 0)
+        ];
+    }
 
-    // Add routine classes to today's count
-    $currentDay = date('l');
-    $stmt = $db->prepare("SELECT COUNT(*) FROM class_routines WHERE day_of_week = ?" . ($isBatchAdmin ? " AND batch_id = ?" : ""));
-    $stmt->execute($isBatchAdmin ? [$currentDay, $adminBatchId] : [$currentDay]);
-    $routineCount = $stmt->fetchColumn();
+    // Routine classes for today (safely check if table exists)
+    try {
+        $currentDay = date('l');
+        $routineSql = "SELECT COUNT(*) FROM class_routines WHERE day_of_week = ?" . ($isBatchAdmin ? " AND batch_id = ?" : "");
+        $stmt = $db->prepare($routineSql);
+        $stmt->execute($isBatchAdmin ? [$currentDay, $adminBatchId] : [$currentDay]);
+        $routineCount = (int)$stmt->fetchColumn();
 
-    $todayClasses['total'] += $routineCount;
-    $todayClasses['scheduled'] += $routineCount;
+        $todayClasses['total'] += $routineCount;
+        $todayClasses['scheduled'] += $routineCount;
+    } catch (Throwable $e) {
+        // Table or column might not exist yet
+    }
 
     // Upcoming classes
     $stmt = $db->prepare("
@@ -91,9 +100,9 @@ try {
         WHERE class_date BETWEEN ? AND ? AND status = 'scheduled'" . ($isBatchAdmin ? " AND batch_id = ?" : "") . "
     ");
     $stmt->execute($isBatchAdmin ? [$today, date('Y-m-d', strtotime('+7 days')), $adminBatchId] : [$today, date('Y-m-d', strtotime('+7 days'))]);
-    $upcomingClasses = $stmt->fetchColumn();
-} catch (Exception $e) {
-    // Tables might not exist yet
+    $upcomingClasses = (int)$stmt->fetchColumn();
+} catch (Throwable $e) {
+    error_log('Admin Dashboard (Classes): ' . $e->getMessage());
 }
 
 // ============================================
@@ -105,37 +114,59 @@ $assignmentStats = [];
 $assignmentCalc = ['total' => 0, 'ongoing' => 0, 'due_soon' => 0, 'overdue' => 0, 'active' => 0];
 
 try {
-    $assignmentStatsSql = "
-        SELECT 
-            a.status,
-            COUNT(*) as count
-        FROM assignments a
-        JOIN classes c ON c.id = a.class_id
-    ";
     if ($isBatchAdmin) {
-        $assignmentStatsSql .= " WHERE c.batch_id = ?";
+        $stmt = $db->prepare("
+            SELECT a.status, COUNT(*) as count
+            FROM assignments a
+            JOIN classes c ON c.id = a.class_id
+            WHERE c.batch_id = ?
+            GROUP BY a.status
+        ");
+        $stmt->execute([$adminBatchId]);
+    } else {
+        $stmt = $db->query("SELECT status, COUNT(*) as count FROM assignments GROUP BY status");
     }
-    $stmt = $db->prepare($assignmentStatsSql . " GROUP BY a.status");
-    $stmt->execute($isBatchAdmin ? [$adminBatchId] : []);
     while ($row = $stmt->fetch()) {
         $assignmentStats[$row['status']] = (int)$row['count'];
     }
 
-    $stmt = $db->prepare("
-        SELECT 
-            COUNT(*) as total,
-            SUM(CASE WHEN deadline > ? AND deadline <= DATE_ADD(?, INTERVAL 3 DAY) AND status IN ('published', 'open') THEN 1 ELSE 0 END) as ongoing,
-            SUM(CASE WHEN deadline > ? AND deadline <= DATE_ADD(?, INTERVAL 1 DAY) AND status IN ('published', 'open') THEN 1 ELSE 0 END) as due_soon,
-            SUM(CASE WHEN deadline < ? AND status IN ('published', 'open') THEN 1 ELSE 0 END) as overdue,
-            SUM(CASE WHEN status IN ('published', 'open') THEN 1 ELSE 0 END) as active
-        FROM assignments a
-        JOIN classes c ON c.id = a.class_id
-        WHERE 1=1" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-    ");
-    $stmt->execute($isBatchAdmin ? [$now, $now, $now, $now, $now, $adminBatchId] : [$now, $now, $now, $now, $now]);
-    $assignmentCalc = $stmt->fetch();
-} catch (Exception $e) {
-    // Tables might not exist yet
+    if ($isBatchAdmin) {
+        $stmt = $db->prepare("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN a.deadline > ? AND a.deadline <= DATE_ADD(?, INTERVAL 3 DAY) AND a.status IN ('published', 'open') THEN 1 ELSE 0 END) as ongoing,
+                SUM(CASE WHEN a.deadline > ? AND a.deadline <= DATE_ADD(?, INTERVAL 1 DAY) AND a.status IN ('published', 'open') THEN 1 ELSE 0 END) as due_soon,
+                SUM(CASE WHEN a.deadline < ? AND a.status IN ('published', 'open') THEN 1 ELSE 0 END) as overdue,
+                SUM(CASE WHEN a.status IN ('published', 'open') THEN 1 ELSE 0 END) as active
+            FROM assignments a
+            JOIN classes c ON c.id = a.class_id
+            WHERE c.batch_id = ?
+        ");
+        $stmt->execute([$now, $now, $now, $now, $now, $adminBatchId]);
+    } else {
+        $stmt = $db->prepare("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN deadline > ? AND deadline <= DATE_ADD(?, INTERVAL 3 DAY) AND status IN ('published', 'open') THEN 1 ELSE 0 END) as ongoing,
+                SUM(CASE WHEN deadline > ? AND deadline <= DATE_ADD(?, INTERVAL 1 DAY) AND status IN ('published', 'open') THEN 1 ELSE 0 END) as due_soon,
+                SUM(CASE WHEN deadline < ? AND status IN ('published', 'open') THEN 1 ELSE 0 END) as overdue,
+                SUM(CASE WHEN status IN ('published', 'open') THEN 1 ELSE 0 END) as active
+            FROM assignments
+        ");
+        $stmt->execute([$now, $now, $now, $now, $now]);
+    }
+    $calcRow = $stmt->fetch();
+    if ($calcRow) {
+        $assignmentCalc = [
+            'total' => (int)($calcRow['total'] ?? 0),
+            'ongoing' => (int)($calcRow['ongoing'] ?? 0),
+            'due_soon' => (int)($calcRow['due_soon'] ?? 0),
+            'overdue' => (int)($calcRow['overdue'] ?? 0),
+            'active' => (int)($calcRow['active'] ?? 0)
+        ];
+    }
+} catch (Throwable $e) {
+    error_log('Admin Dashboard (Assignments): ' . $e->getMessage());
 }
 
 // ============================================
@@ -147,12 +178,7 @@ $pendingRegistrations = 0;
 $newStudentsThisMonth = 0;
 
 try {
-    $studentStatsSql = "
-        SELECT 
-            status,
-            COUNT(*) as count
-        FROM students
-    ";
+    $studentStatsSql = "SELECT status, COUNT(*) as count FROM students";
     if ($isBatchAdmin) {
         $studentStatsSql .= " WHERE batch_id = ?";
     }
@@ -165,7 +191,7 @@ try {
     $registrationSql = "SELECT COUNT(*) FROM registration_requests WHERE status = 'pending'" . ($isBatchAdmin ? " AND batch_id = ?" : "");
     $stmt = $db->prepare($registrationSql);
     $stmt->execute($isBatchAdmin ? [$adminBatchId] : []);
-    $pendingRegistrations = $stmt->fetchColumn();
+    $pendingRegistrations = (int)$stmt->fetchColumn();
 
     $stmt = $db->prepare("
         SELECT COUNT(*) 
@@ -174,9 +200,9 @@ try {
         AND YEAR(created_at) = YEAR(CURRENT_DATE())" . ($isBatchAdmin ? " AND batch_id = ?" : "") . "
     ");
     $stmt->execute($isBatchAdmin ? [$adminBatchId] : []);
-    $newStudentsThisMonth = $stmt->fetchColumn();
-} catch (Exception $e) {
-    // Tables might not exist yet
+    $newStudentsThisMonth = (int)$stmt->fetchColumn();
+} catch (Throwable $e) {
+    error_log('Admin Dashboard (Students): ' . $e->getMessage());
 }
 
 // ============================================
@@ -188,36 +214,69 @@ $currentBalance = 0;
 $monthlyFundData = [];
 
 try {
-    $stmt = $db->prepare("
-        SELECT 
-            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'income' THEN amount ELSE 0 END), 0) as total_income,
-            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'expenditure' THEN amount ELSE 0 END), 0) as total_expenditure,
-            COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'refund' THEN amount ELSE 0 END), 0) as total_refunds
-        FROM fund_transactions t
-        JOIN classes c ON c.id = t.class_id
-        WHERE LOWER(TRIM(t.status)) = 'approved'" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-    ");
-    $stmt->execute($isBatchAdmin ? [$adminBatchId] : []);
-    $fundTotals = $stmt->fetch();
+    if ($isBatchAdmin) {
+        $stmt = $db->prepare("
+            SELECT 
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(t.transaction_type)) = 'income' THEN t.amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(t.transaction_type)) = 'expenditure' THEN t.amount ELSE 0 END), 0) as total_expenditure,
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(t.transaction_type)) = 'refund' THEN t.amount ELSE 0 END), 0) as total_refunds
+            FROM fund_transactions t
+            LEFT JOIN classes c ON c.id = t.class_id
+            WHERE LOWER(TRIM(t.status)) = 'approved' AND c.batch_id = ?
+        ");
+        $stmt->execute([$adminBatchId]);
+    } else {
+        $stmt = $db->query("
+            SELECT 
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'income' THEN amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'expenditure' THEN amount ELSE 0 END), 0) as total_expenditure,
+                COALESCE(SUM(CASE WHEN LOWER(TRIM(transaction_type)) = 'refund' THEN amount ELSE 0 END), 0) as total_refunds
+            FROM fund_transactions
+            WHERE LOWER(TRIM(status)) = 'approved'
+        ");
+    }
+    $fundRow = $stmt->fetch();
+    if ($fundRow) {
+        $fundTotals = [
+            'total_income' => (float)($fundRow['total_income'] ?? 0),
+            'total_expenditure' => (float)($fundRow['total_expenditure'] ?? 0),
+            'total_refunds' => (float)($fundRow['total_refunds'] ?? 0)
+        ];
+    }
     $currentBalance = $fundTotals['total_income'] - $fundTotals['total_expenditure'] - $fundTotals['total_refunds'];
 
-    $stmt = $db->prepare("
-        SELECT 
-            DATE_FORMAT(transaction_date, '%Y-%m') as month,
-            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
-            COALESCE(SUM(CASE WHEN transaction_type = 'expenditure' THEN amount ELSE 0 END), 0) as expenditure,
-            COALESCE(SUM(CASE WHEN transaction_type = 'refund' THEN amount ELSE 0 END), 0) as refunds
-        FROM fund_transactions t
-        JOIN classes c ON c.id = t.class_id
-        WHERE t.status = 'approved'
-        AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-        GROUP BY DATE_FORMAT(t.transaction_date, '%Y-%m')
-        ORDER BY month ASC
-    ");
-    $stmt->execute($isBatchAdmin ? [$adminBatchId] : []);
+    if ($isBatchAdmin) {
+        $stmt = $db->prepare("
+            SELECT 
+                DATE_FORMAT(t.transaction_date, '%Y-%m') as month,
+                COALESCE(SUM(CASE WHEN t.transaction_type = 'income' THEN t.amount ELSE 0 END), 0) as income,
+                COALESCE(SUM(CASE WHEN t.transaction_type = 'expenditure' THEN t.amount ELSE 0 END), 0) as expenditure,
+                COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN t.amount ELSE 0 END), 0) as refunds
+            FROM fund_transactions t
+            LEFT JOIN classes c ON c.id = t.class_id
+            WHERE t.status = 'approved' AND c.batch_id = ?
+            AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            GROUP BY DATE_FORMAT(t.transaction_date, '%Y-%m')
+            ORDER BY month ASC
+        ");
+        $stmt->execute([$adminBatchId]);
+    } else {
+        $stmt = $db->query("
+            SELECT 
+                DATE_FORMAT(transaction_date, '%Y-%m') as month,
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
+                COALESCE(SUM(CASE WHEN transaction_type = 'expenditure' THEN amount ELSE 0 END), 0) as expenditure,
+                COALESCE(SUM(CASE WHEN transaction_type = 'refund' THEN amount ELSE 0 END), 0) as refunds
+            FROM fund_transactions
+            WHERE status = 'approved'
+            AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+            ORDER BY month ASC
+        ");
+    }
     $monthlyFundData = $stmt->fetchAll();
-} catch (Exception $e) {
-    // Tables might not exist yet
+} catch (Throwable $e) {
+    error_log('Admin Dashboard (Funds): ' . $e->getMessage());
 }
 
 // ============================================
@@ -227,62 +286,59 @@ try {
 $recentActivities = [];
 
 try {
-    $recentActivitySql = "
-        SELECT 
-            'registration' as type,
-            s.full_name as title,
-            s.class_roll as detail,
-            s.created_at as created_at,
-            NULL as link
-        FROM students s
-        WHERE s.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . ($isBatchAdmin ? " AND s.batch_id = ?" : "") . "
-        UNION ALL
-        SELECT 
-            'class' as type,
-            c.class_title as title,
-            CONCAT('Status: ', c.status) as detail,
-            c.created_at as created_at,
-            CONCAT('/admin/class-details.php?id=', c.id) as link
-        FROM classes c
-        WHERE c.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-        UNION ALL
-        SELECT 
-            'assignment' as type,
-            a.title as title,
-            CONCAT('Status: ', a.status) as detail,
-            a.created_at as created_at,
-            CONCAT('/admin/assignment-details.php?id=', a.id) as link
-        FROM assignments a
-        JOIN classes c ON c.id = a.class_id
-        WHERE a.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-        UNION ALL
-        SELECT 
-            'fund' as type,
-            CONCAT(UCASE(t.transaction_type), ' - ', t.description) as title,
-            CONCAT('BDT ', FORMAT(t.amount, 2)) as detail,
-            t.created_at as created_at,
-            CONCAT('/admin/funds.php?class_id=', t.class_id) as link
-        FROM fund_transactions t
-        JOIN classes c ON c.id = t.class_id
-        WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . ($isBatchAdmin ? " AND c.batch_id = ?" : "") . "
-        UNION ALL
-        SELECT 
-            'announcement' as type,
-            a.title as title,
-            a.content as detail,
-            a.created_at as created_at,
-            CONCAT('/admin/announcements.php') as link
-        FROM announcements a
-        WHERE a.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        AND a.status = 'published'" . ($isBatchAdmin ? " AND a.batch_id = ?" : "") . "
-        ORDER BY created_at DESC
-        LIMIT 20
-    ";
+    $unionQueries = [];
+    $unionParams = [];
+
+    // Students
+    $sSql = "SELECT 'registration' as type, s.full_name as title, CONCAT('Roll: ', s.class_roll) as detail, s.created_at, CONCAT('/admin/student-details.php?id=', s.id) as link FROM students s";
+    if ($isBatchAdmin) {
+        $sSql .= " WHERE s.batch_id = ?";
+        $unionParams[] = $adminBatchId;
+    }
+    $unionQueries[] = "($sSql ORDER BY s.created_at DESC LIMIT 10)";
+
+    // Classes
+    $cSql = "SELECT 'class' as type, c.class_title as title, CONCAT('Status: ', c.status) as detail, c.created_at, CONCAT('/admin/class-details.php?id=', c.id) as link FROM classes c";
+    if ($isBatchAdmin) {
+        $cSql .= " WHERE c.batch_id = ?";
+        $unionParams[] = $adminBatchId;
+    }
+    $unionQueries[] = "($cSql ORDER BY c.created_at DESC LIMIT 10)";
+
+    // Assignments
+    if ($isBatchAdmin) {
+        $aSql = "SELECT 'assignment' as type, a.title as title, CONCAT('Status: ', a.status) as detail, a.created_at, CONCAT('/admin/assignment-details.php?id=', a.id) as link FROM assignments a JOIN classes c ON c.id = a.class_id WHERE c.batch_id = ?";
+        $unionParams[] = $adminBatchId;
+    } else {
+        $aSql = "SELECT 'assignment' as type, a.title as title, CONCAT('Status: ', a.status) as detail, a.created_at, CONCAT('/admin/assignment-details.php?id=', a.id) as link FROM assignments a";
+    }
+    $unionQueries[] = "($aSql ORDER BY created_at DESC LIMIT 10)";
+
+    // Fund transactions
+    if ($isBatchAdmin) {
+        $tSql = "SELECT 'fund' as type, CONCAT(UCASE(t.transaction_type), ' - ', t.description) as title, CONCAT('BDT ', FORMAT(t.amount, 2)) as detail, t.created_at, '/admin/fund-events.php' as link FROM fund_transactions t JOIN classes c ON c.id = t.class_id WHERE c.batch_id = ?";
+        $unionParams[] = $adminBatchId;
+    } else {
+        $tSql = "SELECT 'fund' as type, CONCAT(UCASE(t.transaction_type), ' - ', t.description) as title, CONCAT('BDT ', FORMAT(t.amount, 2)) as detail, t.created_at, '/admin/fund-events.php' as link FROM fund_transactions t";
+    }
+    $unionQueries[] = "($tSql ORDER BY created_at DESC LIMIT 10)";
+
+    // Announcements
+    try {
+        $annSql = "SELECT 'announcement' as type, a.title as title, a.content as detail, a.created_at, '/admin/announcements.php' as link FROM announcements a WHERE a.status = 'published'";
+        if ($isBatchAdmin) {
+            $annSql .= " AND a.batch_id = ?";
+            $unionParams[] = $adminBatchId;
+        }
+        $unionQueries[] = "($annSql ORDER BY a.created_at DESC LIMIT 10)";
+    } catch (Throwable $e) {}
+
+    $recentActivitySql = implode(" UNION ALL ", $unionQueries) . " ORDER BY created_at DESC LIMIT 20";
     $stmt = $db->prepare($recentActivitySql);
-    $stmt->execute($isBatchAdmin ? array_fill(0, 5, $adminBatchId) : []);
+    $stmt->execute($unionParams);
     $recentActivities = $stmt->fetchAll();
-} catch (Exception $e) {
-    // Tables might not exist yet
+} catch (Throwable $e) {
+    error_log('Admin Dashboard (Recent Activities): ' . $e->getMessage());
 }
 
 // ============================================
@@ -300,7 +356,7 @@ $statCards = [
         'upcoming' => (int)$upcomingClasses
     ],
     'assignments' => [
-        'total' => array_sum($assignmentStats),
+        'total' => max(array_sum($assignmentStats), (int)($assignmentCalc['total'] ?? 0)),
         'ongoing' => (int)($assignmentCalc['ongoing'] ?? 0),
         'due_soon' => (int)($assignmentCalc['due_soon'] ?? 0),
         'overdue' => (int)($assignmentCalc['overdue'] ?? 0)
@@ -668,13 +724,13 @@ const chartData = {
         active: <?php echo $statCards['students']['active']; ?>,
         pending: <?php echo $statCards['students']['pending']; ?>,
         suspended: <?php echo $statCards['students']['suspended']; ?>,
-        inactive: <?php echo $statCards['students']['total'] - $statCards['students']['active'] - $statCards['students']['pending'] - $statCards['students']['suspended']; ?>
+        inactive: <?php echo max(0, $statCards['students']['total'] - $statCards['students']['active'] - $statCards['students']['pending'] - $statCards['students']['suspended']); ?>
     },
     assignmentStatus: {
         ongoing: <?php echo $statCards['assignments']['ongoing']; ?>,
         due_soon: <?php echo $statCards['assignments']['due_soon']; ?>,
         overdue: <?php echo $statCards['assignments']['overdue']; ?>,
-        completed: <?php echo $statCards['assignments']['total'] - $statCards['assignments']['ongoing'] - $statCards['assignments']['due_soon'] - $statCards['assignments']['overdue']; ?>
+        completed: <?php echo max(0, $statCards['assignments']['total'] - $statCards['assignments']['ongoing'] - $statCards['assignments']['due_soon'] - $statCards['assignments']['overdue']); ?>
     },
     monthlyFund: <?php echo json_encode($monthlyFundData); ?>
 };
