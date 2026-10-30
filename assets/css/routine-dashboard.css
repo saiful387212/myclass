@@ -1,0 +1,82 @@
+.routine-schedule-card .card-header,
+.routine-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.routine-class-list {
+    display: grid;
+    gap: 12px;
+}
+
+.routine-class-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-white);
+}
+
+.routine-class-content {
+    min-width: 0;
+}
+
+.routine-class-content h4 {
+    margin: 0 0 8px;
+}
+
+.routine-class-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.routine-class-meta i {
+    margin-right: 4px;
+}
+
+.routine-status {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.routine-status-scheduled {
+    color: #3730a3;
+    background: #e0e7ff;
+}
+
+.routine-status-live {
+    color: #065f46;
+    background: #d1fae5;
+}
+
+.routine-status-completed {
+    color: #374151;
+    background: #e5e7eb;
+}
+
+.routine-status-cancelled {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+@media (max-width: 600px) {
+    .routine-class-item {
+        flex-direction: column;
+    }
+
+    .routine-card-actions {
+        width: 100%;
+    }
+}

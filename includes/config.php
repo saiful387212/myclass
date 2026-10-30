@@ -63,7 +63,7 @@ define('DB_CHARSET', 'utf8mb4');
 
 // Application Settings
 define('APP_NAME', 'ClassMate');
-define('APP_VERSION', '1.1.4');
+define('APP_VERSION', '1.1.5');
 define('APP_ENV', 'development'); // development, production
 
 // Security Settings
@@ -106,7 +106,8 @@ Auth::init();
 
 // Redirect to login if not on public pages
 $publicPages = ['auth/login.php', 'auth/student-login.php', 'auth/admin-login.php',
-                'auth/register.php', 'auth/registration-status.php', 'index.php'];
+                'auth/register.php', 'auth/registration-status.php', 'index.php',
+                'manifest.php', 'sw.js', 'offline.html'];
 
 // Normalize current script path to use forward slashes so checks work on Windows
 $currentPage = str_replace(BASE_PATH, '', $_SERVER['SCRIPT_FILENAME']);

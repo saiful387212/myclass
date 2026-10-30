@@ -52,7 +52,7 @@
     ?>
     <!-- ===== PWA META TAGS ===== -->
     <!-- Basic PWA Meta -->
-    <link rel="manifest" href="<?php echo url('manifest.json'); ?>?v=<?php echo rawurlencode(APP_VERSION); ?>">
+    <link rel="manifest" href="<?php echo url('manifest.php'); ?>" crossorigin="use-credentials">
     <meta name="theme-color" content="#4F46E5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -113,9 +113,11 @@
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-            navigator.serviceWorker.register('<?php echo url('sw.js'); ?>')
+            // Use root-relative path for proper scope on mobile
+            var swUrl = '<?php echo url('sw.js'); ?>';
+            navigator.serviceWorker.register(swUrl, { scope: '<?php echo url(''); ?>' })
                 .then(function(registration) {
-                    console.log('ClassMate ServiceWorker registered');
+                    console.log('ClassMate ServiceWorker registered with scope:', registration.scope);
                 })
                 .catch(function(error) {
                     console.warn('ClassMate ServiceWorker registration error:', error);

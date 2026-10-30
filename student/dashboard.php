@@ -11,7 +11,7 @@ require_once BASE_PATH . '/includes/auth-middleware.php';
 Auth::requireStudent();
 
 $pageTitle = 'Student Dashboard';
-$pageCss = ['student.css', 'dashboard.css'];
+$pageCss = ['student.css', 'dashboard.css', 'routine-dashboard.css'];
 $pageJs = ['student-dashboard.js', 'charts.js'];
 $isStudent = true;
 
@@ -23,6 +23,7 @@ $student = $currentUser ?: [
     'session' => ''
 ];
 $todayClasses = [];
+$tomorrowClasses = [];
 $upcomingClass = null;
 $currentClass = null;
 $completedClasses = [];
@@ -81,59 +82,62 @@ try {
     $stmt->execute([$studentId, $studentId, $studentBatchId]);
 
 // ============================================
-// TODAY'S CLASSES
+// TODAY'S AND TOMORROW'S ROUTINE CLASSES
 // ============================================
-$today = date('Y-m-d');
-$currentDay = date('l'); // e.g., 'Sunday', 'Monday'
 
-// Get today's classes from weekly routine
-$stmt = $db->prepare("
-    SELECT 
-        cr.id as id,
-        cr.course_id,
-        cr.class_code,
-        cr.class_title,
-        cr.start_time,
-        cr.end_time,
-        cr.room,
-        cr.instructor,
-        'scheduled' as status,
-        crs.course_code as crs_course_code,
-        crs.course_title as crs_course_title,
-        crs.credits,
-        'active' as enrollment_status,
-        0 as attended,
-        0 as total_attendance
-    FROM class_routines cr
-    JOIN courses crs ON cr.course_id = crs.id
-    WHERE cr.day_of_week = ? AND cr.batch_id = ?
-    ORDER BY cr.start_time ASC
-");
-$stmt->execute([$currentDay, $studentBatchId]);
-$todayClasses = $stmt->fetchAll();
+// Load recurring routine entries with any date-specific admin status override.
+$loadRoutineClasses = static function (string $classDate) use ($db, $studentBatchId): array {
+    $classDay = date('l', strtotime($classDate));
+    $stmt = $db->prepare("
+        SELECT
+            cr.id,
+            cr.course_id,
+            cr.class_code,
+            cr.class_title,
+            cr.start_time,
+            cr.end_time,
+            cr.room,
+            cr.instructor,
+            crs.course_code AS crs_course_code,
+            crs.course_title AS crs_course_title,
+            crs.credits,
+            o.status AS occurrence_status
+        FROM class_routines cr
+        JOIN courses crs ON cr.course_id = crs.id
+        LEFT JOIN class_routine_occurrences o
+            ON o.routine_id = cr.id AND o.class_date = ?
+        WHERE cr.day_of_week = ? AND cr.batch_id = ?
+        ORDER BY cr.start_time ASC
+    ");
+    $stmt->execute([$classDate, $classDay, $studentBatchId]);
+    $classes = $stmt->fetchAll();
+    $now = time();
 
-// Categorize today's classes
-$upcomingClass = null;
-$currentClass = null;
-$completedClasses = [];
-$cancelledClasses = [];
-$totalTodayClasses = count($todayClasses);
-
-$now = date('H:i:s');
-
-foreach ($todayClasses as $class) {
-    if ($class['status'] === 'cancelled') {
-        $cancelledClasses[] = $class;
-    } elseif ($class['end_time'] < $now) {
-        $completedClasses[] = $class;
-    } elseif ($class['start_time'] <= $now && $class['end_time'] >= $now) {
-        $currentClass = $class;
-    } elseif ($class['start_time'] > $now) {
-        if (!$upcomingClass || $class['start_time'] < $upcomingClass['start_time']) {
-            $upcomingClass = $class;
+    foreach ($classes as &$class) {
+        if ($class['occurrence_status'] !== null && $class['occurrence_status'] !== 'scheduled') {
+            $class['status'] = $class['occurrence_status'];
+        } elseif ($now >= strtotime($classDate . ' ' . $class['end_time'])) {
+            $class['status'] = 'completed';
+        } elseif ($now >= strtotime($classDate . ' ' . $class['start_time'])) {
+            $class['status'] = 'in_progress';
+        } else {
+            $class['status'] = 'scheduled';
         }
     }
-}
+    unset($class);
+
+    return $classes;
+};
+
+$today = date('Y-m-d');
+$tomorrow = date('Y-m-d', strtotime('+1 day'));
+$todayClasses = $loadRoutineClasses($today);
+$tomorrowClasses = $loadRoutineClasses($tomorrow);
+
+$totalTodayClasses = count($todayClasses);
+$completedClasses = array_filter($todayClasses, static function ($class) {
+    return $class['status'] === 'completed';
+});
 
 // ============================================
 // TODAY'S TASKS
@@ -512,7 +516,7 @@ include_once BASE_PATH . '/includes/header.php';
             </div>
             <div class="stat-change">
                 <i class="fas fa-clock"></i>
-                <span><?php echo count($completedClasses); ?> Completed</span>
+                <span data-today-completed-count><?php echo count($completedClasses); ?> Completed</span>
             </div>
         </div>
     </div>
@@ -522,13 +526,10 @@ include_once BASE_PATH . '/includes/header.php';
         <div class="dashboard-column">
             
             <!-- ===== Today's Classes ===== -->
-            <div class="card">
+            <div class="card routine-schedule-card" id="today-routine-card" data-routine-date="<?php echo htmlspecialchars($today); ?>">
                 <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-calendar-day text-primary"></i>
-                        Today's Classes
-                    </h3>
-                    <span class="badge badge-primary"><?php echo $totalTodayClasses; ?> Classes</span>
+                    <h3 class="card-title"><i class="fas fa-calendar-day text-primary"></i> Today's Classes</h3>
+                    <span class="badge badge-primary"><?php echo count($todayClasses); ?> Classes</span>
                 </div>
                 <div class="card-body">
                     <?php if (empty($todayClasses)): ?>
@@ -538,91 +539,98 @@ include_once BASE_PATH . '/includes/header.php';
                             <p>You have no classes scheduled for today. Enjoy your free time!</p>
                         </div>
                     <?php else: ?>
-                        <?php if ($currentClass): ?>
-                            <div class="current-class-alert">
-                                <i class="fas fa-video"></i>
-                                <div>
-                                    <strong>Class in Progress</strong>
-                                    <span><?php echo htmlspecialchars($currentClass['class_title']); ?></span>
-                                    <small><?php echo date('h:i A', strtotime($currentClass['start_time'])); ?> - <?php echo date('h:i A', strtotime($currentClass['end_time'])); ?></small>
-                                </div>
-                                <span class="badge badge-success">Live</span>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if ($upcomingClass): ?>
-                            <div class="upcoming-class">
-                                <div class="upcoming-label">
-                                    <i class="fas fa-clock"></i> Upcoming Class
-                                </div>
-                                <div class="class-item highlight">
-                                    <div class="class-info">
-                                        <h4><?php echo htmlspecialchars($upcomingClass['class_title']); ?></h4>
-                                        <div class="class-meta">
-                                            <span class="meta-item">
-                                                <i class="fas fa-user-tie"></i> 
-                                                <?php echo htmlspecialchars($upcomingClass['instructor']); ?>
-                                            </span>
-                                            <span class="meta-item">
-                                                <i class="fas fa-clock"></i> 
-                                                <?php echo date('h:i A', strtotime($upcomingClass['start_time'])); ?>
-                                                - <?php echo date('h:i A', strtotime($upcomingClass['end_time'])); ?>
-                                            </span>
-                                            <span class="meta-item">
-                                                <i class="fas fa-map-marker-alt"></i> 
-                                                <?php echo htmlspecialchars($upcomingClass['room'] ?? 'TBA'); ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span class="class-time">
-                                        <?php 
-                                        $start = strtotime($upcomingClass['start_time']);
-                                        $now = time();
-                                        $diff = $start - $now;
-                                        $hours = floor($diff / 3600);
-                                        $minutes = floor(($diff % 3600) / 60);
-                                        if ($hours > 0) {
-                                            echo "{$hours}h {$minutes}m";
-                                        } else {
-                                            echo "{$minutes}m";
-                                        }
-                                        ?>
-                                    </span>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <div class="class-list">
+                        <div class="routine-class-list">
                             <?php foreach ($todayClasses as $class): ?>
-                                <div class="class-item <?php echo $class['status'] === 'cancelled' ? 'cancelled' : ''; ?>">
-                                    <div class="class-info">
-                                        <h4>
-                                            <?php echo htmlspecialchars($class['class_title']); ?>
+                                <?php
+                                $statusLabels = [
+                                    'scheduled' => 'Scheduled',
+                                    'in_progress' => 'In Progress',
+                                    'completed' => 'Completed',
+                                    'cancelled' => 'Cancelled'
+                                ];
+                                $statusClasses = [
+                                    'scheduled' => 'routine-status-scheduled',
+                                    'in_progress' => 'routine-status-live',
+                                    'completed' => 'routine-status-completed',
+                                    'cancelled' => 'routine-status-cancelled'
+                                ];
+                                ?>
+                                <article class="routine-class-item" data-auto-status="<?php echo in_array($class['occurrence_status'], [null, 'scheduled'], true) ? 'true' : 'false'; ?>"
+                                    data-start-at="<?php echo strtotime($today . ' ' . $class['start_time']); ?>"
+                                    data-end-at="<?php echo strtotime($today . ' ' . $class['end_time']); ?>">
+                                    <div class="routine-class-content">
+                                        <h4><?php echo htmlspecialchars($class['class_title']); ?>
                                             <span class="class-code"><?php echo htmlspecialchars($class['class_code']); ?></span>
                                         </h4>
-                                        <div class="class-meta">
-                                            <span class="meta-item">
-                                                <i class="fas fa-user-tie"></i> 
-                                                <?php echo htmlspecialchars($class['instructor']); ?>
-                                            </span>
-                                            <span class="meta-item">
-                                                <i class="fas fa-clock"></i> 
-                                                <?php echo date('h:i A', strtotime($class['start_time'])); ?>
-                                            </span>
-                                            <span class="meta-item">
-                                                <i class="fas fa-map-marker-alt"></i> 
-                                                <?php echo htmlspecialchars($class['room'] ?? 'TBA'); ?>
-                                            </span>
+                                        <div class="routine-class-meta">
+                                            <span><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
+                                            <span><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($class['instructor']); ?></span>
+                                            <span><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($class['room'] ?: 'TBA'); ?></span>
                                         </div>
-                                        <?php if ($class['status'] === 'cancelled'): ?>
-                                            <span class="badge badge-danger">Cancelled</span>
-                                        <?php elseif ($class['end_time'] < $now): ?>
-                                            <span class="badge badge-secondary">Completed</span>
-                                        <?php elseif ($class['start_time'] <= $now && $class['end_time'] >= $now): ?>
-                                            <span class="badge badge-success">In Progress</span>
-                                        <?php endif; ?>
                                     </div>
-                                </div>
+                                    <span class="routine-status <?php echo $statusClasses[$class['status']]; ?>" data-routine-status><?php echo $statusLabels[$class['status']]; ?></span>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- ===== Tomorrow's Classes ===== -->
+            <div class="card routine-schedule-card" id="tomorrow-routine-card" data-routine-date="<?php echo htmlspecialchars($tomorrow); ?>">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-calendar-plus text-info"></i> Tomorrow's Classes</h3>
+                    <div class="routine-card-actions">
+                        <span class="badge badge-info"><?php echo count($tomorrowClasses); ?> Classes</span>
+                        <button type="button" class="btn btn-sm btn-outline" id="download-tomorrow-routine">
+                            <i class="fas fa-download"></i> Download Image
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($tomorrowClasses)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-check"></i>
+                            <h4>No Classes Tomorrow</h4>
+                            <p>You have no classes scheduled for tomorrow.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="routine-class-list">
+                            <?php foreach ($tomorrowClasses as $class): ?>
+                                <?php
+                                $statusLabels = [
+                                    'scheduled' => 'Scheduled',
+                                    'in_progress' => 'In Progress',
+                                    'completed' => 'Completed',
+                                    'cancelled' => 'Cancelled'
+                                ];
+                                $statusClasses = [
+                                    'scheduled' => 'routine-status-scheduled',
+                                    'in_progress' => 'routine-status-live',
+                                    'completed' => 'routine-status-completed',
+                                    'cancelled' => 'routine-status-cancelled'
+                                ];
+                                ?>
+                                <article class="routine-class-item routine-download-item" data-auto-status="<?php echo in_array($class['occurrence_status'], [null, 'scheduled'], true) ? 'true' : 'false'; ?>"
+                                    data-start-at="<?php echo strtotime($tomorrow . ' ' . $class['start_time']); ?>"
+                                    data-end-at="<?php echo strtotime($tomorrow . ' ' . $class['end_time']); ?>"
+                                    data-title="<?php echo htmlspecialchars($class['class_title'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-code="<?php echo htmlspecialchars($class['class_code'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-instructor="<?php echo htmlspecialchars($class['instructor'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-time="<?php echo htmlspecialchars(date('h:i A', strtotime($class['start_time'])) . ' - ' . date('h:i A', strtotime($class['end_time'])), ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-room="<?php echo htmlspecialchars($class['room'] ?: 'TBA', ENT_QUOTES, 'UTF-8'); ?>">
+                                    <div class="routine-class-content">
+                                        <h4><?php echo htmlspecialchars($class['class_title']); ?>
+                                            <span class="class-code"><?php echo htmlspecialchars($class['class_code']); ?></span>
+                                        </h4>
+                                        <div class="routine-class-meta">
+                                            <span><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($class['start_time'])); ?> - <?php echo date('h:i A', strtotime($class['end_time'])); ?></span>
+                                            <span><i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($class['instructor']); ?></span>
+                                            <span><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($class['room'] ?: 'TBA'); ?></span>
+                                        </div>
+                                    </div>
+                                    <span class="routine-status <?php echo $statusClasses[$class['status']]; ?>" data-routine-status><?php echo $statusLabels[$class['status']]; ?></span>
+                                </article>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>

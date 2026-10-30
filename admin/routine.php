@@ -10,7 +10,7 @@ require_once BASE_PATH . '/includes/auth-middleware.php';
 Auth::requireAdmin();
 
 $pageTitle = 'Weekly Class Routine';
-$pageCss = ['admin.css'];
+$pageCss = ['admin.css', 'admin-routine.css'];
 $isAdmin = true;
 
 try {
@@ -68,6 +68,44 @@ try {
                 Session::setFlash('success', 'Routine class updated successfully.');
                 header("Location: " . url('admin/routine.php'));
                 exit;
+            } elseif ($_POST['action'] === 'set_occurrence_status') {
+                if (!Security::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+                    throw new RuntimeException('Invalid security token. Please reload the page and try again.');
+                }
+
+                $routineId = (int)($_POST['routine_id'] ?? 0);
+                $classDate = trim($_POST['class_date'] ?? '');
+                $status = $_POST['status'] ?? '';
+                if ($routineId < 1 || !in_array($status, ['scheduled', 'completed', 'cancelled'], true)) {
+                    throw new RuntimeException('Select a valid routine and class status.');
+                }
+
+                $date = DateTimeImmutable::createFromFormat('!Y-m-d', $classDate);
+                if (!$date || $date->format('Y-m-d') !== $classDate || $classDate < date('Y-m-d')) {
+                    throw new RuntimeException('Select a valid class date that is not in the past.');
+                }
+
+                [$routineBatchSql, $routineBatchParams] = Authorization::adminBatchFilter('cr');
+                $stmt = $db->prepare("SELECT cr.day_of_week FROM class_routines cr WHERE cr.id = ?" . $routineBatchSql);
+                $stmt->execute(array_merge([$routineId], $routineBatchParams));
+                $routineDay = $stmt->fetchColumn();
+                if (!$routineDay) {
+                    throw new RuntimeException('Routine class not found or you do not have permission to manage it.');
+                }
+                if ($date->format('l') !== $routineDay) {
+                    throw new RuntimeException('The selected date must match this routine class day.');
+                }
+
+                $stmt = $db->prepare("
+                    INSERT INTO class_routine_occurrences (routine_id, class_date, status, updated_by)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE status = VALUES(status), updated_by = VALUES(updated_by)
+                ");
+                $stmt->execute([$routineId, $classDate, $status, Session::get('user_id')]);
+
+                Session::setFlash('success', 'Class occurrence status updated.');
+                header("Location: " . url('admin/routine.php'));
+                exit;
             } elseif ($_POST['action'] === 'delete' && isset($_POST['id'])) {
                 $id = (int)$_POST['id'];
                 [$batchSql, $batchParams] = Authorization::adminBatchFilter();
@@ -101,7 +139,15 @@ try {
     
 } catch (Throwable $e) {
     error_log("Routine management error: " . $e->getMessage());
-    Session::setFlash('error', 'An error occurred while managing routines.');
+    $isRoutineMigrationMissing = $e instanceof PDOException
+        && $e->getCode() === '42S02'
+        && (strpos($e->getMessage(), 'class_routines') !== false || strpos($e->getMessage(), 'class_routine_occurrences') !== false);
+    $message = $e instanceof RuntimeException
+        ? $e->getMessage()
+        : ($isRoutineMigrationMissing
+            ? 'Routine tables are missing. Run the routine installer as an admin, then reload this page.'
+            : 'An error occurred while managing routines.');
+    Session::setFlash('error', $message);
     $routines = [];
 }
 
@@ -163,6 +209,24 @@ include_once BASE_PATH . '/includes/header.php';
                                             <td><?php echo htmlspecialchars($r['instructor']); ?></td>
                                             <td><?php echo htmlspecialchars($r['room']); ?></td>
                                             <td>
+                                                <?php
+                                                $nextRoutineDate = new DateTimeImmutable('today');
+                                                while ($nextRoutineDate->format('l') !== $r['day_of_week']) {
+                                                    $nextRoutineDate = $nextRoutineDate->modify('+1 day');
+                                                }
+                                                ?>
+                                                <form method="POST" class="routine-status-form">
+                                                    <?php echo Security::csrfField(); ?>
+                                                    <input type="hidden" name="action" value="set_occurrence_status">
+                                                    <input type="hidden" name="routine_id" value="<?php echo (int)$r['id']; ?>">
+                                                    <input type="date" name="class_date" min="<?php echo date('Y-m-d'); ?>" value="<?php echo $nextRoutineDate->format('Y-m-d'); ?>" aria-label="Class date" required>
+                                                    <select name="status" aria-label="Class status">
+                                                        <option value="scheduled">Scheduled</option>
+                                                        <option value="completed">Completed</option>
+                                                        <option value="cancelled">Cancelled</option>
+                                                    </select>
+                                                    <button type="submit" class="btn btn-sm btn-primary">Set Status</button>
+                                                </form>
                                                 <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this class?');">
                                                     <input type="hidden" name="action" value="delete">
                                                     <input type="hidden" name="id" value="<?php echo $r['id']; ?>">

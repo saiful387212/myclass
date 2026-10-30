@@ -3,7 +3,7 @@
  * Provides offline support and caching
  */
 
-const CACHE_NAME = 'classmate-v2.0.3';
+const CACHE_NAME = 'classmate-v2.1.0';
 const APP_ROOT = new URL('./', self.location.href).pathname;
 const OFFLINE_URL = APP_ROOT + 'offline.html';
 const appAsset = function(path) {
@@ -106,7 +106,8 @@ self.addEventListener('fetch', function(event) {
   }
 
   // For HTML pages - Network first with cache fallback
-  if (event.request.headers.get('Accept').includes('text/html')) {
+  var acceptHeader = event.request.headers.get('Accept') || '';
+  if (acceptHeader.includes('text/html')) {
     event.respondWith(
       fetch(event.request)
         .then(function(response) {
@@ -167,7 +168,7 @@ self.addEventListener('fetch', function(event) {
           })
           .catch(function() {
             // If both cache and network fail, return offline page for HTML
-            if (event.request.headers.get('Accept').includes('text/html')) {
+            if ((event.request.headers.get('Accept') || '').includes('text/html')) {
               return caches.match(OFFLINE_URL);
             }
             return new Response('Offline', {
